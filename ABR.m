@@ -281,6 +281,17 @@ classdef ABR
             
         end
         
+        function [timePeaks, peaks] = get_Peaks(abrObj)
+           % Get peaks from ABR amplitudes 
+           
+           % Get positive peaks
+           
+           % Get negative peaks
+           
+           % Make sure they are outside the noise and after the
+           % recordingdelay
+           
+        end
         
         % ---------- DEPENDENT PROPERTIES
         function timeVector = get.timeVector(abrObj)
