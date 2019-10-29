@@ -285,12 +285,21 @@ classdef ABR
            % Get peaks from ABR amplitudes 
            
            % Get positive peaks
+           [peaks, locs] = findpeaks(abrObj.amplitude, 'MinPeakHeight', abrObj.noiseLevel(1));
+           timePeaks = abrObj.timeVector(locs);
            
            % Get negative peaks
+           [negpeaks, neglocs] = findpeaks(-abrObj.amplitude, 'MinPeakHeight', -abrObj.noiseLevel(2));
            
            % Make sure they are outside the noise and after the
            % recordingdelay
            
+           
+           % Visually check the peaks (to be deleted later)
+           abrObj.plot
+           hold on
+           plot(timePeaks, peaks, 'o') % Positive peaks
+           plot(abrObj.timeVector(neglocs), -negpeaks, 'o') % Negative peaks
         end
         
         % ---------- DEPENDENT PROPERTIES
