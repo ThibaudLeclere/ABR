@@ -169,18 +169,19 @@ classdef ABR
                 ax.YGrid = 'on';
                 
                 % Line of the recording delay
-%                 sampleLimit = ceil(1e-3 * abrObj(n).fs) + 1;
                 recordingDelay = 1.4414; %ms
                 recordingDelay = Scale.convert_Units(recordingDelay, Scale('m'), Scale(timePrefix));
                 line(ax,[recordingDelay recordingDelay], [min(amp) max(amp)]...
                                , 'LineStyle', '--'...
                                , 'Color', 'k'...
                                )
+                           
                  % Line of Y=0
                 line(ax,get(ax, 'XLim'), [0 0]...
                             , 'LineStyle', '-'...
                             , 'Color', [0.3 0.3 0.3]...
                             )
+                        
                  % Noise confidence intervals
                  for i = 1:2
                      line(ax, [t(1) t(end)]...
@@ -285,21 +286,29 @@ classdef ABR
            % Get peaks from ABR amplitudes 
            
            % Get positive peaks
-           [peaks, locs] = findpeaks(abrObj.amplitude, 'MinPeakHeight', abrObj.noiseLevel(1));
-           timePeaks = abrObj.timeVector(locs);
+           [peaks, timePeaks] = findpeaks(abrObj.amplitude, abrObj.fs...
+                                                     , 'MinPeakHeight', abrObj.noiseLevel(1)...
+                                                     ..., 'MinPeakDistance', 0.5e-3 ...
+                                                     );
            
            % Get negative peaks
-           [negpeaks, neglocs] = findpeaks(-abrObj.amplitude, 'MinPeakHeight', -abrObj.noiseLevel(2));
+           [negpeaks, negTimePeaks] = findpeaks(-abrObj.amplitude,  abrObj.fs...
+                                                            , 'MinPeakHeight', -abrObj.noiseLevel(2)...
+                                                            ..., 'MinPeakDistance', 0.5e-3 ...                                                            
+                                                            );
            
-           % Make sure they are outside the noise and after the
-           % recordingdelay
-           
+           % Delete peaks found before the recording delay
+           recordingDelay = 1.4414e-3; % s
+           peaks(timePeaks < recordingDelay) = [];
+           timePeaks(timePeaks < recordingDelay) = [];
+           negpeaks(negTimePeaks < recordingDelay) = [];
+           negTimePeaks(negTimePeaks < recordingDelay) = [];
            
            % Visually check the peaks (to be deleted later)
            abrObj.plot
            hold on
            plot(timePeaks, peaks, 'o') % Positive peaks
-           plot(abrObj.timeVector(neglocs), -negpeaks, 'o') % Negative peaks
+           plot(negTimePeaks, -negpeaks, 'o') % Negative peaks
         end
         
         % ---------- DEPENDENT PROPERTIES
@@ -314,15 +323,15 @@ classdef ABR
         
         function noiseConfidentInterval = get.noiseLevel(abrObj)
 
-        timeLimit = 1e-3; % 1ms
-        sampleLimit = ceil(timeLimit * abrObj.fs) + 1;
+            timeLimit = 1e-3; % 1ms
+            sampleLimit = ceil(timeLimit * abrObj.fs) + 1;
 
-%         Scale.convert_Units(abrObj.amplitude(1:sampleLimit), abrObj.ampScale)
-        av = mean(abrObj.amplitude(1:sampleLimit));
-        sd = std(abrObj.amplitude(1:sampleLimit));
+    %         Scale.convert_Units(abrObj.amplitude(1:sampleLimit), abrObj.ampScale)
+            av = mean(abrObj.amplitude(1:sampleLimit));
+            sd = std(abrObj.amplitude(1:sampleLimit));
 
-        % Confidence interval of noise
-        noiseConfidentInterval = [av + 2*sd,  av - 2*sd];    
+            % Confidence interval of noise
+            noiseConfidentInterval = [av + 2*sd,  av - 2*sd];    
         end
                
         function minAmp = get_minAmplitude(abrArray)
