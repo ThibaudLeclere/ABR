@@ -1,2 +1,2 @@
 % Run test units
-testResult = runtests('ABR_TEST');
+testResult = runtests('ABR_TEST')
