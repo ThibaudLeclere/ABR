@@ -370,9 +370,8 @@ end
                 [filename, selpath] = uiputfile('*.xlsx');
                 % Save as a new file
 
-            case 'Save in a existing file'
-                defaultPath = 'D:\DATOS\Thibaud\DRAFT';
-                selpath = uigetdir(defaultPath, 'Select a folder to save');
+            case 'Save in a existing file'                
+                selpath = uigetdir('Select a folder to save');
 
                 % Save in an existing file
                 selPathContent = dir(selpath);
