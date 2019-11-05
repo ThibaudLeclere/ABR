@@ -288,7 +288,9 @@ end
             msgbox('An even number of points must be selected.', 'Missing selected data', 'error')
             return
         end
-
+        
+        % Loop through all cursordata objects and only select those
+        % corresponding to the current axes
         for i = 1:length(allCursorsData)
             if strcmp(allCursorsData(i).Target.Parent.Tag, sprintf('Ax%d', n))
                waveIdx = waveIdx + 1;
@@ -327,10 +329,6 @@ end
         end
 
 
-        % Get ABR vector
-%         timepoints = data(n).timepoints;
-%         abrVector = data(n).abr;
-
         % Get selected points
         selectedTimepoints = data(n).waves(:,1);
         amplitudes = data(n).waves(:,2);
@@ -363,68 +361,15 @@ end
         T.Properties.VariableUnits = ["ms", "mV", "ms", "mV", "mV", "ms", "mV"];
         
                 
-        
         % Use Writetable to export (proved to work on a Mac computer)
-%         try
-%             writetable(T, '..\test.xlsx', 'Delimiter', ',')
-%         catch ME
-%             keyboard
-%         end
-            
-%         if ismac
-%             
-%             % Export as a csv file
-%             
-%             T = table(time, amp);
-%             
-%         elseif ispc
-%             % Export directly as an excel file
-%             % Format all data for excel sheet
-%             
-%             C = cell(data(n).abr.Npoints+1,7);
-%             
-%             C(1,1:7) = {'Time (ms)', 'Recorded ABR (mV)', 'Selected time points (ms)', 'Selected Amplitude (mV)', 'Peak to peak amplitude (mV)', 'Latencies (ms)', 'Noise Level (mV)'};
-%             C(2:end,1) = num2cell(Scale.convert_Units(data(n).abr.timeVector, data(n).abr.timeScale, Scale('m')));
-%             C(2:end,2) = num2cell(Scale.convert_Units(data(n).abr.amplitude, data(n).abr.ampScale, Scale('m')));
-%             
-%             C(2:2+length(selectedTimepoints)-1,3) = num2cell(Scale.convert_Units(selectedTimepoints, data(n).abr.timeScale, Scale('m')));
-%             C(2:2+length(amplitudes)-1,4) = num2cell(Scale.convert_Units(amplitudes, data(n).abr.ampScale, Scale('m')));
-%             
-%             C(2:2+length(peak2peak)-1,5) = num2cell(Scale.convert_Units(peak2peak, data(n).abr.ampScale, Scale('m')));
-%             C(2:2+length(latencies)-1,6) = num2cell(Scale.convert_Units(latencies, data(n).abr.timeScale, Scale('m')));
-%             
-%             C(2:2+length(noiseLevel)-1, 7) = num2cell(Scale.convert_Units(noiseLevel, data(n).abr.ampScale, Scale('m')));
-%             % Ask whether the user wants to create a new file, or to save into an
-%             % existing one
-%             answer = questdlg('How do you want to save the file?', 'Choose a saving method'...
-%                 , 'Create a new file'...
-%                 , 'Save in a existing file' ...
-%                 , 'Create a new file'...
-%                 );
-%             
-%             switch answer
-%                 case ''
-%                     return
-%                 case 'Create a new file'
-%                     [filename, selpath] = uiputfile('*.xlsx');
-%                     % Save as a new file
-%                     
-%                 case 'Save in a existing file'
-%                     selpath = uigetdir('Select a folder to save');
-%                     
-%                     % Save in an existing file
-%                     selPathContent = dir(selpath);
-%                     files = selPathContent(~[selPathContent(:).isdir]);
-%                     list = {files(:).name};
-%                     idx = listdlg('ListString', list);
-%                     filename = list{idx};
-%             end
-%             
-%             if ~isempty(filename)
-%                 xlswrite(fullfile(selpath, filename), C, sprintf('%ddB', data(n).abr.level))
-%             end
-%         end
-
+        [filename, selectedPath] = uiputfile({'*.xlsx'; '*.xls'; '*.csv'});
+        
+        try
+            writetable(T, fullfile(selectedPath, filename), 'Sheet', data(n).abr.label)
+        catch ME
+            keyboard
+        end
+  
     end
 
     function amps = compute_Amplitudes(waves)
