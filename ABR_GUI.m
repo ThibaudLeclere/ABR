@@ -368,7 +368,7 @@ end
         try
             writetable(T, fullfile(selectedPath, filename), 'Sheet', data(n).abr.label)
         catch ME
-            keyboard
+            msgbox(sprintf('An error occurred when exporting ABRs:\n %s', ME.message), '', 'error')
         end
   
     end
