@@ -359,9 +359,15 @@ end
         T = table(time, amp, selTimePoints, selAmplitudes, peak2peak, latencies, noiseLevel);
         colNames = ["Time", "Amplitude", "SelectedTimes", "SelectedAmplitudes", "Peak2Peak", "Latencies", "NoiseLevel"];
         units = ["ms", "mV", "ms", "mV", "mV", "ms", "mV"];
+        varNames = (compose("%s (%s)", colNames', units'))';
         
-        T.Properties.VariableNames = (compose("%s (%s)", colNames', units'))';
-                
+        if verLessThan('matlab','9.5')
+            % Pass a string array for VariableNames is not allowed before MATLAB 9.5 (2018b)
+            T.Properties.VariableNames = cellstr(varNames);
+        else
+            T.Properties.VariableNames = varNames;
+        end
+        
         % Use Writetable to export (proved to work on a Mac computer)
         [filename, selectedPath] = uiputfile({'*.xlsx'; '*.xls'; '*.csv'});
         
