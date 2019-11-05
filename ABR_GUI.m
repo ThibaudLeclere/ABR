@@ -368,9 +368,28 @@ end
             T.Properties.VariableNames = varNames;
         end
         
-        % Use Writetable to export (proved to work on a Mac computer)
-        [filename, selectedPath] = uiputfile({'*.xlsx'; '*.xls'; '*.csv'});
         
+        % Ask whether the user wants to create a new file, or to save into an
+        % existing one
+        answer = questdlg('How do you want to save the file?', 'Choose a saving method'...
+                        , 'Create a new file'...
+                        , 'Save in a existing file' ...
+                        , 'Create a new file'...
+                        );
+
+        switch answer
+            case ''
+                return
+            case 'Create a new file'
+                [filename, selectedPath] = uiputfile({'*.xlsx'; '*.xls'; '*.csv'});
+                
+
+            case 'Save in a existing file'  
+                [filename, selectedPath] = uigetfile({'*.xlsx'; '*.xls'; '*.csv'});
+        end
+        
+        
+        % Use Writetable to export (proved to work on a Mac computer)
         try
             writetable(T, fullfile(selectedPath, filename), 'Sheet', data(n).abr.label)
         catch ME
