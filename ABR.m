@@ -5,7 +5,7 @@ classdef ABR
         level
         side
         subjectID
-        label = '';
+        label = "";
         timeUnit = 's';
         ampUnit = 'V';
         timeScale = Scale('unit');
@@ -38,61 +38,60 @@ classdef ABR
             end
             
         end        
-        function export(abrObj, filename, showLabels)
+        function export(abrObj, filename)
             % Saves the ABR array in an excel sheet
             %   Time is represented in lines of the excel sheet
             %   Dimension one is represented as columns of the excel sheet
             %   Other dimensions are represented as sheets
-            if nargin < 3
-                showLabels = true;
-            end
+
             
             [filepath, ~, ext] = fileparts(filename);
             if isempty(ext) % If no extension has been entered
                 ext = 'xlsx';
             end
             
-%             Nabrs = numel(abrObj);
             maxNpoints = max([abrObj.Npoints]);
-            abrData = cell(maxNpoints, size(abrObj,1));
-            Labels = cell(1,numel(abrObj));
             
-            % Reshape abrObj
-%             abrObj = reshape(abrObj, size(abrObj,1), []);
-            
-%             % Check that all abrs have the same number of points
-%             if isscalar(unique([abrObj.Npoints]))
-%                 abrMatrix = zeros(abrObj(1).Npoints, size(abrObj,1));
-%             else
-%                 % Use cells to get around it
-%             end
            
            
-            % Get abr amplitudes
+            % Get abr amplitudes in a table
+            Nabr = numel(abrObj);
+            
+                % Preallocation
+                exportTable = table('Size', [maxNpoints, Nabr+1], 'VariableTypes', repmat("double", 1, Nabr + 1));
+                exportTable{:,1} = (abrObj(1).timeVector)';
+                
             for i = 1:size(abrObj,1)
-                abrData(1:abrObj(i).Npoints,i) = num2cell(abrObj(i).amplitude);
-                Labels{1,i} = abrObj(i).label;
+                % Padd with NaN if necessary
+                ampVector = abrObj(i).amplitude;
+                
+                if length(ampVector) ~= maxNpoints
+                   ampVector =  [ampVector; nan(maxNpoints - length(ampVector),1)];
+                end
+                exportTable{:,i+1} = ampVector;
             end
             
-            sheet = unique(string([abrObj.subjectID]));
-            if showLabels
-                exportData = [Labels;abrData];
-            else
-                exportData = abrData;
-            end
+            % Labels
+            varNames = ["Time", [abrObj.label]];
+            units = join([string({abrObj(1).timeScale abrObj.ampScale}); string({abrObj(1).timeUnit abrObj.ampUnit})],1);
+            units = erase(units, [" ", "unit"]);
             
-            [status, message] = xlswrite(fullfile(filepath, [filename '.' ext]), exportData, sheet);
-            if status
-                % success
+            exportTable.Properties.VariableNames = (compose("%s (%s)", varNames', units'))';
+
+            
+            try
+                writetable(exportTable, filename)
                 msgbox(sprintf('ABRs exported with success in %s', fullfile(filepath, [filename '.' ext])), 'ABR exported')
-            else
-                % show message
+            catch ME
                 msgbox(sprintf('An error occurred when exporting ABRs:\n %s', message.message), '', 'error')
             end
-        end        
+
+        end   
+        
         function openInGUI(abrObj)
             ABR_GUI(abrObj)
         end
+        
         function plot(abrObj, varargin)
             plotProperties = varargin;
             if ~isempty(varargin) && isa(varargin{1}, 'matlab.graphics.axis.Axes')
@@ -368,7 +367,7 @@ classdef ABR
                 % Create label
                 if nargin < 2
                     [~, name, ~] = fileparts(filename);
-                    label = sprintf('%s_%ddB', name, abrLevel);
+                    label = sprintf("%s_%ddB", name, abrLevel);
                 end
                 
                 abrObj(i) = ABR('amplitude', abrAmplitude...
