@@ -45,7 +45,7 @@ classdef ABR
             %   Other dimensions are represented as sheets
 
             
-            [filepath, ~, ext] = fileparts(filename);
+            [filepath, name, ext] = fileparts(filename);
             if isempty(ext) % If no extension has been entered
                 ext = 'xlsx';
             end
@@ -80,10 +80,10 @@ classdef ABR
 
             
             try
-                writetable(exportTable, filename)
-                msgbox(sprintf('ABRs exported with success in %s', fullfile(filepath, [filename '.' ext])), 'ABR exported')
+                writetable(exportTable, fullfile(filepath, insertAfter(name, name, ext)))
+                msgbox(sprintf('ABRs exported with success in %s', fullfile(filepath, [name ext])), 'ABR exported')
             catch ME
-                msgbox(sprintf('An error occurred when exporting ABRs:\n %s', message.message), '', 'error')
+                msgbox(sprintf('An error occurred when exporting ABRs:\n %s', ME.message), '', 'error')
             end
 
         end   
