@@ -357,9 +357,10 @@ end
         
         % Create table
         T = table(time, amp, selTimePoints, selAmplitudes, peak2peak, latencies, noiseLevel);
-        T.Properties.VariableNames = ["Time", "Amplitude", "SelectedTimes", "SelectedAmplitudes", "Peak2Peak", "Latencies", "NoiseLevel"];
-        T.Properties.VariableUnits = ["ms", "mV", "ms", "mV", "mV", "ms", "mV"];
+        colNames = ["Time", "Amplitude", "SelectedTimes", "SelectedAmplitudes", "Peak2Peak", "Latencies", "NoiseLevel"];
+        units = ["ms", "mV", "ms", "mV", "mV", "ms", "mV"];
         
+        T.Properties.VariableNames = (compose("%s (%s)", colNames', units'))';
                 
         % Use Writetable to export (proved to work on a Mac computer)
         [filename, selectedPath] = uiputfile({'*.xlsx'; '*.xls'; '*.csv'});
