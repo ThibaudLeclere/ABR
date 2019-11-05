@@ -339,25 +339,37 @@ end
         % Get corresponding amplitudes
         peak2peak = data(n).amplitudes;
         
-        noiseLevel = data(n).abr.noiseLevel;
+        noiseLevel = (data(n).abr.noiseLevel)';
         
-        % Create table
-        time = Scale.convert_Units(data(n).abr.timeVector, data(n).abr.timeScale, Scale('m'));
+        % Convert vectors in ms and mV
+        time = Scale.convert_Units((data(n).abr.timeVector)', data(n).abr.timeScale, Scale('m'));
         amp = Scale.convert_Units(data(n).abr.amplitude, data(n).abr.ampScale, Scale('m'));
         selTimePoints = Scale.convert_Units(selectedTimepoints, data(n).abr.timeScale, Scale('m'));
         selAmplitudes = Scale.convert_Units(amplitudes, data(n).abr.ampScale, Scale('m'));
         peak2peak = Scale.convert_Units(peak2peak, data(n).abr.ampScale, Scale('m'));
         latencies = Scale.convert_Units(latencies, data(n).abr.timeScale, Scale('m'));
+        noiseLevel = Scale.convert_Units(noiseLevel, data(n).abr.ampScale, Scale('m'));
         
+        % Pad with NaN to get the same vector length
+        selTimePoints = [selTimePoints; nan(length(time)-length(selTimePoints), 1)];
+        selAmplitudes = [selAmplitudes; nan(length(time)-length(selAmplitudes), 1)];
+        peak2peak = [peak2peak; nan(length(time)-length(peak2peak), 1)];
+        latencies = [latencies; nan(length(time)-length(latencies), 1)];
+        noiseLevel = [noiseLevel; nan(length(time)-length(noiseLevel), 1)];
         
-        table(time, amp, selTimePoints, selAmplitudes, peak2peak, latencies)
+        % Create table
+        T = table(time, amp, selTimePoints, selAmplitudes, peak2peak, latencies, noiseLevel);
+        T.Properties.VariableNames = ["Time", "Amplitude", "SelectedTimes", "SelectedAmplitudes", "Peak2Peak", "Latencies", "NoiseLevel"];
+        T.Properties.VariableUnits = ["ms", "mV", "ms", "mV", "mV", "ms", "mV"];
+        
+                
         
         % Use Writetable to export (proved to work on a Mac computer)
-        try
-            writetable(T, 'test.xlsx', 'Delimiter', ',')
-        catch ME
-            keyboard
-        end
+%         try
+%             writetable(T, '..\test.xlsx', 'Delimiter', ',')
+%         catch ME
+%             keyboard
+%         end
             
 %         if ismac
 %             
