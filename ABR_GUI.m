@@ -361,9 +361,11 @@ end
         units = ["ms", "mV", "ms", "mV", "mV", "ms", "mV"];
         varNames = (compose("%s (%s)", colNames', units'))';
         
-        if verLessThan('matlab','9.5')
+        if verLessThan('matlab', '9.7')            
             % Pass a string array for VariableNames is not allowed before MATLAB 9.5 (2018b)
-            T.Properties.VariableNames = cellstr(varNames);
+            % Also variable names must be valid (isvarname returning true),
+            % so inserting units is not possible.
+            T.Properties.VariableNames = cellstr(colNames);
         else
             T.Properties.VariableNames = varNames;
         end
