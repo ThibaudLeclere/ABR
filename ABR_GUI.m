@@ -125,7 +125,16 @@ function generateTabs(parent, N)
                      , 'Position', [ax.Position(1)+ax.Position(3)-0.1 0.85 0.1 0.05]...
                      , 'Callback', {@save_Points , n}...
                     );
-                
+        
+        % Automatic peak detection
+        uicontrol(tab, 'Style', 'pushbutton'...
+                     , 'String', 'Detect Peaks'...
+                     , 'Units', 'Normalized'...
+                     , 'FontUnits', 'Normalized'...
+                     , 'FontSize', 0.5 ...
+                     , 'Position', [ax.Position(1)+ax.Position(3)+0.1 0.9 0.1 0.05]...
+                     , 'Callback', {@detect_Peaks, ax, n} ...
+                     )
         % Export button      
         uicontrol(tab, 'Style', 'pushbutton'...
                      , 'String', 'Export'...
@@ -235,6 +244,30 @@ function showNoise(checkbox, ~, n)
     lines = findobj(currentAx, 'Tag', sprintf('noiseLevel'));
     [lines.Visible] = deal(show);
     
+end
+
+function detect_Peaks(button, ~, ax, n)
+    data = guidata(button);
+    abrSig = data(n).abr.amplitude;
+    fs = data(n).abr.fs;
+    noiseLevel = data(n).abr.noiseLevel;
+%     t = data(n).abr.timeVector;
+%     t = Scale.convert_Units(t, data(n).abr.timeScale, Scale('m')); % convert in ms
+    
+    % Get positive peaks
+    [peaks, locs] = findpeaks(abrSig, fs, 'MinPeakHeight', noiseLevel(1));
+    peaks = peaks(locs>1e-3);
+    locs = locs(locs>1e-3);
+    
+    % Get negative peaks
+    [negPeaks, negLocs] = findpeaks(-abrSig, fs, 'MinPeakHeight', -noiseLevel(2));
+    negPeaks = negPeaks(negLocs>1e-3);
+    negLocs = negLocs(negLocs>1e-3);
+    
+    % Plot on the graph
+    plot(ax, locs, peaks, 'o')
+    plot(ax, negLocs, -negPeaks, 'o') 
+    guidata(button, data)
 end
 
     % ---------- SAVINGS -------------------
