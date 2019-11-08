@@ -265,8 +265,15 @@ function detect_Peaks(button, ~, ax, n)
     negLocs = negLocs(negLocs>1e-3);
     
     % Plot on the graph
-    plot(ax, locs, peaks, 'o')
-    plot(ax, negLocs, -negPeaks, 'o') 
+%     plot(ax, locs, peaks, 'o')
+%     plot(ax, negLocs, -negPeaks, 'o') 
+    abrPlot = findobj('Tag', sprintf('recording_%d', data(n).abr.level));
+    for i = 1:length(peaks)
+        dt = datatip(abrPlot, locs(i), peaks(i));
+    end
+    for j = 1:length(negPeaks)
+        dt = datatip(abrPlot, negLocs(j), -negPeaks(j));
+    end
     guidata(button, data)
 end
 

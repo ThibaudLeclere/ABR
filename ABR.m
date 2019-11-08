@@ -155,7 +155,8 @@ classdef ABR
                 amp = Scale.convert_Units(abrObj(n).amplitude, abrObj(n).ampScale, Scale.(ampPrefix));
                 noiseLvl = Scale.convert_Units(abrObj(n).noiseLevel, abrObj(n).ampScale, Scale.(ampPrefix));
                 
-                plot(ax, t, amp, plotProperties{:})
+                plot(ax, t, amp, plotProperties{:}...
+                               , 'Tag', sprintf('recording_%d', abrObj(n).level))
                 
                 ax.XLabel.String = sprintf('Time (%s)', timeunit);
                 ax.XLabel.FontSize = 16;
