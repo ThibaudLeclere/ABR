@@ -255,12 +255,18 @@ function detect_Peaks(button, ~, ax, n)
 %     t = Scale.convert_Units(t, data(n).abr.timeScale, Scale('m')); % convert in ms
     
     % Get positive peaks
-    [peaks, locs] = findpeaks(abrSig, fs, 'MinPeakHeight', noiseLevel(1));
+    [peaks, locs] = findpeaks(abrSig, fs, 'MinPeakHeight', noiseLevel(1)...
+                                        , 'MinPeakProminence', 1 ...
+                                        , 'NPeaks', 4 ...
+                                        );
     peaks = peaks(locs>1e-3);
     locs = locs(locs>1e-3);
     
     % Get negative peaks
-    [negPeaks, negLocs] = findpeaks(-abrSig, fs, 'MinPeakHeight', -noiseLevel(2));
+    [negPeaks, negLocs] = findpeaks(-abrSig, fs, 'MinPeakHeight', -noiseLevel(2)...
+                                               , 'MinPeakProminence', 1 ...
+                                               , 'NPeaks', 4 ...
+                                               );
     negPeaks = negPeaks(negLocs>1e-3);
     negLocs = negLocs(negLocs>1e-3);
     
