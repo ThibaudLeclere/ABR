@@ -213,6 +213,8 @@ function generateTabs(parent, N)
                      );
         data(n).dataCursorObj = datacursormode(parent);       
         data(n).abr.plot(ax)  
+        data(n).Brush = brush;
+        data(n).Brush.ActionPostCallback = @(fig, axStruct) select_WaveFromBrush(fig, axStruct);
         
 %         plot_ABR(tabgp, n)
     end
@@ -222,7 +224,25 @@ end
 
 
 % --------------- CALLBACKS ---------------------
-
+function select_WaveFromBrush(fig, axStruct)
+    data = guidata(fig);
+    
+    ax = axStruct.Axes;
+    dataplot = findobj(ax, '-regexp', 'Tag', 'recording_\d*');
+    n = sscanf(ax.Tag, 'Ax%d');
+    
+    amp = data(n).abr.amplitude;
+    t = (data(n).abr.timeVector)';
+       
+    idx = logical(dataplot.BrushData);
+    
+    selection = [t(idx) amp(idx)];
+    [~, maxIdx] = min(selection(:,2));
+    [~, minIdx] = max(selection(:,2));
+    
+    datatip(dataplot, selection(minIdx, 1), selection(minIdx, 2))
+    datatip(dataplot, selection(maxIdx, 1), selection(maxIdx, 2))
+end
 function showNoise(checkbox, ~, n)
 %     data = guidata(checkbox);
     
