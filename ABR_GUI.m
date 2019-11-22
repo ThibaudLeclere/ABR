@@ -53,7 +53,6 @@ function [data, Nabrs] = initialize(abrObj)
    % Save abr objects in data structure                  
    for i = 1:Nabrs
         data(i).abr = abrObj(i);
-%         data(i).noiseLevel = estimate_Noise(abrObj(i).amplitude, abrObj(i).fs);
    end
     % Delete potential previous plots
     tbGroup = findobj('Tag', 'tabGroup');
@@ -237,11 +236,21 @@ function select_WaveFromBrush(fig, axStruct)
     idx = logical(dataplot.BrushData);
     
     selection = [t(idx) amp(idx)];
-    [~, maxIdx] = min(selection(:,2));
-    [~, minIdx] = max(selection(:,2));
+    [~, minIdx] = min(selection(:,2));
+    [~, maxIdx] = max(selection(:,2));
     
-    datatip(dataplot, selection(minIdx, 1), selection(minIdx, 2))
-    datatip(dataplot, selection(maxIdx, 1), selection(maxIdx, 2))
+    if verLessThan('Matlab', '9.7') % The datatip command doesn't exist before Matlab 2019b
+        cursor = data(n).dataCursorObj;
+        dtMin = cursor.createDatatip(dataplot);
+        dtMax = cursor.createDatatip(dataplot);
+        
+        dtMin.Position = [selection(minIdx, :), 0];
+        dtMax.Position = [selection(maxIdx, :), 0];
+        
+    else
+        datatip(dataplot, selection(minIdx, 1), selection(minIdx, 2))
+        datatip(dataplot, selection(maxIdx, 1), selection(maxIdx, 2))        
+    end
 end
 function showNoise(checkbox, ~, n)
 %     data = guidata(checkbox);
