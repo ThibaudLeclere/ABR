@@ -101,7 +101,6 @@ function generateTabs(parent, N)
                      , 'FontSize', 14 ...
                      , 'Tag',sprintf('Ax%d', n)...
                      , 'Ygrid', 'on'...
-                     , 'ButtonDownFcn', @click_Ax ...
                      );
         hold on
         
@@ -228,28 +227,32 @@ function select_WaveFromBrush(fig, axStruct)
     
     ax = axStruct.Axes;
     dataplot = findobj(ax, '-regexp', 'Tag', 'recording_\d*');
-    n = sscanf(ax.Tag, 'Ax%d');
-    
-    amp = data(n).abr.amplitude;
-    t = (data(n).abr.timeVector)';
+       
        
     idx = logical(dataplot.BrushData);
     
-    selection = [t(idx) amp(idx)];
-    [~, minIdx] = min(selection(:,2));
-    [~, maxIdx] = max(selection(:,2));
+    if any(idx)
+        n = sscanf(ax.Tag, 'Ax%d');
+        amp = data(n).abr.amplitude;
+        t = (data(n).abr.timeVector)';
     
-    if verLessThan('Matlab', '9.7') % The datatip command doesn't exist before Matlab 2019b
-        cursor = data(n).dataCursorObj;
-        dtMin = cursor.createDatatip(dataplot);
-        dtMax = cursor.createDatatip(dataplot);
+        selection = [t(idx) amp(idx)];
+        [~, minIdx] = min(selection(:,2));
+        [~, maxIdx] = max(selection(:,2));
         
-        dtMin.Position = [selection(minIdx, :), 0];
-        dtMax.Position = [selection(maxIdx, :), 0];
-        
-    else
-        datatip(dataplot, selection(minIdx, 1), selection(minIdx, 2))
-        datatip(dataplot, selection(maxIdx, 1), selection(maxIdx, 2))        
+        if verLessThan('Matlab', '9.7') % The datatip command doesn't exist before Matlab 2019b
+            %         cursor = data(n).dataCursorObj;
+            %         dtMin = cursor.createDatatip(dataplot);
+            %         dtMax = cursor.createDatatip(dataplot);
+            %
+            %         dtMin.Position = [selection(minIdx, :), 0];
+            %         dtMax.Position = [selection(maxIdx, :), 0];
+            plot(ax,selection(minIdx, 1), selection(minIdx,2), 'og')
+            plot(ax,selection(maxIdx, 1), selection(maxIdx,2), 'og')
+        else
+            datatip(dataplot, selection(minIdx, 1), selection(minIdx, 2))
+            datatip(dataplot, selection(maxIdx, 1), selection(maxIdx, 2))
+        end
     end
 end
 function showNoise(checkbox, ~, n)
