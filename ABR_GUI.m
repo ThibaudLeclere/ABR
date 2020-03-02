@@ -313,21 +313,22 @@ end
         waves = nan(10,2);
         waveIdx = 0;
         allCursorsData = getCursorInfo(data(1).dataCursorObj);
-        if isempty(allCursorsData)
+        tipAxes = arrayfun(@(x) x.Target.Parent.Tag, allCursorsData, 'UniformOutput', false);
+        datatipsOnCurrentAxes = allCursorsData(strcmp(tipAxes, sprintf('Ax%d', n)));
+        
+        if isempty(datatipsOnCurrentAxes)
             msgbox('No points has been selected.', 'Missing selected data', 'error')
             return
-        elseif mod(length(allCursorsData) , 2) ~= 0 % If the number of points selected is odd
+        elseif mod(length(datatipsOnCurrentAxes) , 2) ~= 0 % If the number of points selected is odd
             msgbox('An even number of points must be selected.', 'Missing selected data', 'error')
             return
         end
         
         % Loop through all cursordata objects and only select those
         % corresponding to the current axes
-        for i = 1:length(allCursorsData)
-            if strcmp(allCursorsData(i).Target.Parent.Tag, sprintf('Ax%d', n))
-               waveIdx = waveIdx + 1;
-               waves(waveIdx,:) = allCursorsData(i).Position;
-            end
+        for i = 1:length(datatipsOnCurrentAxes)
+            waveIdx = waveIdx + 1;
+            waves(waveIdx,:) = datatipsOnCurrentAxes(i).Position;            
         end
         if waveIdx == 0
             msgbox('No points has been selected.', 'Missing selected data', 'error')
