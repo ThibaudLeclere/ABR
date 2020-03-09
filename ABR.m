@@ -93,7 +93,7 @@ classdef ABR
         function openInGUI(abrObj)
             ABR_GUI(abrObj)
         end
-        function plot(abrObj, varargin)
+        function abrPlot = plot(abrObj, varargin)
             plotProperties = varargin;
             if ~isempty(varargin) && isa(varargin{1}, 'matlab.graphics.axis.Axes')
                 ax = varargin{1};                
@@ -140,7 +140,9 @@ classdef ABR
             
             plotProperties = plotProperties(~(timeunitIdx + ampunitIdx + YlimitsIdx + XlimitsIdx));
             
+            
             Nabrs = numel(abrObj);
+            abrPlot = gobjects(Nabrs, 1); 
             for n = 1:Nabrs
                 if createFigFlag
                     figure('Name', abrObj(n).label)
@@ -155,8 +157,8 @@ classdef ABR
                 amp = Scale.convert_Units(abrObj(n).amplitude, abrObj(n).ampScale, Scale.(ampPrefix));
                 noiseLvl = Scale.convert_Units(abrObj(n).noiseLevel, abrObj(n).ampScale, Scale.(ampPrefix));
                 
-                plot(ax, t, amp, plotProperties{:}...
-                               , 'Tag', sprintf('recording_%d', abrObj(n).level))
+                abrPlot(n) = plot(ax, t, amp, plotProperties{:}...
+                               , 'Tag', sprintf('recording_%d', abrObj(n).level));
                 
                 ax.XLabel.String = sprintf('Time (%s)', timeunit);
                 ax.XLabel.FontSize = 16;
