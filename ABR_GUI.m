@@ -363,7 +363,7 @@ end
     
     
     % Create datatip
-    if ~verLessThan('Matlab', '9.7')
+    if verLessThan('Matlab', '9.7')
         % Positive peaks   
         for i = 1:length(peaks)
             posTip = dataCursorObj.createDatatip(abrPlot);
@@ -406,7 +406,7 @@ function select_WaveFromBrush(fig, axStruct)
         [~, minIdx] = min(brushSelection(2,:));
         [~, maxIdx] = max(brushSelection(2,:));
 %         
-        if ~verLessThan('Matlab', '9.7') % The datatip command doesn't exist before Matlab 2019b
+        if verLessThan('Matlab', '9.7') % The datatip command doesn't exist before Matlab 2019b
             cursor = datacursormode(fig);
             
             dtMin = cursor.createDatatip(abrPlot);
