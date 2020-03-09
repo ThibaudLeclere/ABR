@@ -300,6 +300,8 @@ function open_PeakAnalysis(button, ~, n)
     analysisAx = axes(analysisFig, 'Position', [0.1 0.1 .6 .75]);    
     abrPlot = abrObj.plot(analysisAx);
     dataCursorObj = datacursormode(analysisFig);
+    Brush = brush;
+    Brush.ActionPostCallback = @(fig, axStruct) select_WaveFromBrush(fig, axStruct);
     
     % Analysis panel
     peakAnalysisPanel = uipanel(analysisFig, 'Title', 'Automatic peak detection'...
@@ -330,14 +332,11 @@ if nargin < 5 || isempty(settings)
     settings.MinPeakProminence = 0;
     settings.MinPeakHeight = 0;
 end
-%     data = guidata(button);
     abrSig = abrObj.amplitude;
-%     fs = abrObj.fs;
+
     t = abrObj.timeVector;
     noiseLevel = abrObj.noiseLevel;
-%     t = data(n).abr.timeVector;
-%     t = Scale.convert_Units(t, data(n).abr.timeScale, Scale('m')); % convert in ms
-    
+  
     
     
     
@@ -361,16 +360,6 @@ end
                                                ..., 'Annotate', 'extents'...
                                                );
                                            
-    % Remove peaks in the noise region
-%     peaks = peaks(locs>1e-3);
-%     w = w(locs>1e-3);
-%     p = p(locs>1e-3);
-%     locs = locs(locs>1e-3);
-%     negPeaks = negPeaks(negLocs>1e-3);
-%     negLocs = negLocs(negLocs>1e-3);
-    
-    % Get abrPlot object (either with findobj, or passing it directly through function) 
-%     abrPlot = findobj('Tag', sprintf('recording_%d', data(n).abr.level));
     
     
     % Create datatip
@@ -395,13 +384,41 @@ end
     end
       
     
-%     for j = 1:length(negPeaks)
-%         line(ax,[negLocs(j) negLocs(j)], [-negPeaks(j) -negPeaks(j)], 'Color', 'r', 'Tag', sprintf('Peak%d', i))
-%         line(ax, [negLocs(j) negLocs(j)], [-negPeaks(j) -negPeaks(j)], 'Color', 'k', 'Tag', sprintf('Width%d', i))
-% %         dt = datatip(abrPlot, negLocs(j), -negPeaks(j));
-%     end
+end
+function select_WaveFromBrush(fig, axStruct)
+%     data = guidata(fig);
     
-%     guidata(button, data)
+    ax = axStruct.Axes;
+    abrPlot = findobj(ax, '-regexp', 'Tag', 'recording_\d*');
+      
+    
+    idx = logical(abrPlot.BrushData);
+%     
+    if any(idx)
+        disp('Selection has been made with the brush')
+        t = abrPlot.XData;
+        amp = abrPlot.YData;        
+        
+        brushSelection = [t(idx) ; amp(idx)];
+        
+        % Select min and max values within the selection with respect to
+        % the amplitude
+        [~, minIdx] = min(brushSelection(2,:));
+        [~, maxIdx] = max(brushSelection(2,:));
+%         
+        if ~verLessThan('Matlab', '9.7') % The datatip command doesn't exist before Matlab 2019b
+            cursor = datacursormode(fig);
+            
+            dtMin = cursor.createDatatip(abrPlot);
+            dtMax = cursor.createDatatip(abrPlot);
+
+            dtMin.Position = [brushSelection(1, minIdx), brushSelection(2, minIdx)];
+            dtMax.Position = [brushSelection(1, maxIdx), brushSelection(2, maxIdx)];
+        else
+            datatip(dataplot, brushSelection(minIdx, 1), brushSelection(minIdx, 2))
+            datatip(dataplot, brushSelection(maxIdx, 1), brushSelection(maxIdx, 2))
+        end
+    end
 end
 function set_DetectionSetting(sliderObj, ~, labelObj, n)
    
