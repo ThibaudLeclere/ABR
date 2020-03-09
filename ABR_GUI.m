@@ -297,23 +297,52 @@ function open_PeakAnalysis(button, ~, n)
     
     figName = sprintf('Peak Analysis: %s', abrObj.label);
     analysisFig = figure('Name', figName);
-    analysisAx = axes(analysisFig);
-    
+    analysisAx = axes(analysisFig, 'Position', [0.1 0.1 .6 .75]);    
     abrPlot = abrObj.plot(analysisAx);
+    dataCursorObj = datacursormode(analysisFig);
     
-
+    % Analysis panel
+    peakAnalysisPanel = uipanel(analysisFig, 'Title', 'Automatic peak detection'...
+                                           , 'Position', [0.76,0.40,0.2,0.45]...
+                                           );
+    
+        % Sliders for automatic detection
+        detectionSettings = [];
+        uicontrol(peakAnalysisPanel, 'Units', 'Normalized'...
+                                   , 'Position', [0.05 0.05 0.8 0.1]...
+                                   , 'String', 'Detect Peaks'...
+                                   , 'Callback', {@detect_Peaks, abrObj, dataCursorObj, abrPlot, detectionSettings} ...
+                                   );
+    % Delete button
+    uicontrol(analysisFig, 'Style', 'pushbutton' ...
+                         , 'String', 'Delete all'...
+                         , 'Units','Normalized'...
+                         , 'Position', [0.76 0.1 0.1 0.1] ...
+                         , 'Callback', {@delete_Datatips, dataCursorObj} ...
+                         );
 end
-function detect_Peaks(button, ~, ax, n)
-    data = guidata(button);
-    abrSig = data(n).abr.amplitude;
-    fs = data(n).abr.fs;
-    t = data(n).abr.timeVector;
-    noiseLevel = data(n).abr.noiseLevel;
+function detect_Peaks(~, ~, abrObj,  dataCursorObj, abrPlot, settings)
+if nargin < 5 || isempty(settings)
+    settings.Npeaks = 4;
+    settings.Threshold = 0;
+    settings.MinPeakDistance = 0;
+    settings.MinPeakWidth = 0;
+    settings.MinPeakProminence = 0;
+    settings.MinPeakHeight = 0;
+end
+%     data = guidata(button);
+    abrSig = abrObj.amplitude;
+%     fs = abrObj.fs;
+    t = abrObj.timeVector;
+    noiseLevel = abrObj.noiseLevel;
 %     t = data(n).abr.timeVector;
 %     t = Scale.convert_Units(t, data(n).abr.timeScale, Scale('m')); % convert in ms
     
+    
+    
+    
     % Get positive peaks
-    [peaks, locs, w, p] = findpeaks(abrSig(t>1e-3), t(t>1e-3) ...
+    [peaks, locs] = findpeaks(abrSig(t>1e-3), t(t>1e-3) ...
                                         , 'MinPeakHeight', noiseLevel(1)...
                                         ..., 'MinPeakProminence', data(n).peakDetectionSettings.Prominence ...
                                         , 'NPeaks', 4 ...                                        
@@ -326,11 +355,11 @@ function detect_Peaks(button, ~, ax, n)
     
     
     % Get negative peaks
-%     [negPeaks, negLocs] = findpeaks(-abrSig(t>1e-3), fs, 'MinPeakHeight', -noiseLevel(2)...
-%                                                ..., 'MinPeakProminence', 0.5 ...
-%                                                , 'NPeaks', data(n).peakDetectionSettings.Npeaks ...
-%                                                , 'Annotate', 'extents'...
-%                                                );
+    [negPeaks, negLocs] = findpeaks(-abrSig(t>1e-3), t(t>1e-3), 'MinPeakHeight', -noiseLevel(2)...
+                                               ..., 'MinPeakProminence', 0.5 ...
+                                               , 'NPeaks', settings.Npeaks ...
+                                               ..., 'Annotate', 'extents'...
+                                               );
                                            
     % Remove peaks in the noise region
 %     peaks = peaks(locs>1e-3);
@@ -340,29 +369,23 @@ function detect_Peaks(button, ~, ax, n)
 %     negPeaks = negPeaks(negLocs>1e-3);
 %     negLocs = negLocs(negLocs>1e-3);
     
+    % Get abrPlot object (either with findobj, or passing it directly through function) 
+%     abrPlot = findobj('Tag', sprintf('recording_%d', data(n).abr.level));
     
-    % Plot on the graph
-%     plot(ax, locs, peaks, 'o')
-%     plot(ax, negLocs, -negPeaks, 'o') 
-    abrPlot = findobj('Tag', sprintf('recording_%d', data(n).abr.level));
-    for i = 1:length(peaks)
-        line(ax,[locs(i) locs(i)], [peaks(i) peaks(i)-p(i)], 'Color', 'g', 'Tag', sprintf('Peak%d', i))
-        line(ax, [locs(i)-w(i)/2 locs(i)+w(i)/2], [peaks(i)-p(i)/2 peaks(i)-p(i)/2], 'Color', 'b', 'Tag', sprintf('Width%d', i))
-    end
     
     % Create datatip
-    if verLessThan('Matlab', '9.7')
-        tempFig = figure;
-            tempAx = axes(tempFig);
-            
-            data(n).abr.plot(tempAx);
-            tempPlot = findobj('Parent', tempAx, '-and', 'Tag', sprintf('recording_%d', data(n).abr.level));
-            dataCursorObj = datacursormode(tempFig);
-            
-            for i = 1:length(peaks)
-                dTip = dataCursorObj.createDatatip(tempPlot);
-                dTip.Position = [locs(i), peaks(i)];
-            end
+    if ~verLessThan('Matlab', '9.7')
+        % Positive peaks   
+        for i = 1:length(peaks)
+            posTip = dataCursorObj.createDatatip(abrPlot);
+            posTip.Position = [locs(i), peaks(i)];
+        end
+        
+        % Negative peaks
+        for j = 1:length(negPeaks)
+            negTip = dataCursorObj.createDatatip(abrPlot);
+            negTip.Position = [negLocs(j), -negPeaks(j)];
+        end
     else
 
           % datatip([locs(i) peaks(i)])  
@@ -378,7 +401,7 @@ function detect_Peaks(button, ~, ax, n)
 % %         dt = datatip(abrPlot, negLocs(j), -negPeaks(j));
 %     end
     
-    guidata(button, data)
+%     guidata(button, data)
 end
 function set_DetectionSetting(sliderObj, ~, labelObj, n)
    
@@ -408,14 +431,9 @@ function update_Label(labelObj, val)
     
 end
 
-function clean_Peaks(ax)
-    disp('Clean peaks')
-    
-    % Clean graphic lines
-    L = findobj('-regexp', 'Tag', 'Peak\d|Width\d');
-    if ~isempty(L)
-        delete(L([L.Parent] == ax))
-    end
+function delete_Datatips(~, ~, dataCursorObj)
+    removeAllDataCursors(dataCursorObj)
+
 end
     % ---------- SAVINGS -------------------
     function save_Figure(saveButton, ~, ax, n)
