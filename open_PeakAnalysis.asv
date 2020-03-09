@@ -1,0 +1,354 @@
+function open_PeakAnalysis(button, ~, n)
+    data = guidata(button);
+    abrObj = data(n).abr;
+    
+    figName = sprintf('Peak Analysis: %s', abrObj.label);
+    analysisFig = figure('Name', figName);
+    analysisAx = axes(analysisFig, 'Position', [0.05 0.1 .6 .75]);    
+    abrPlot = abrObj.plot(analysisAx);
+    dataCursorObj = datacursormode(analysisFig);
+    Brush = brush;
+    Brush.ActionPostCallback = @(fig, axStruct) select_WaveFromBrush(fig, axStruct);
+    
+    analysisTabGroup = uitabgroup(analysisFig, 'Position', [analysisAx.Position(1) + analysisAx.Position(3) + 0.02...
+                                                            0.20 ... Y
+                                                            0.30 ... Width
+                                                            0.75... Height
+                                                            ]);
+    
+    %  ---------- Analysis Tab
+    peakAnalysisTab = uitab(analysisTabGroup, 'Title', 'Auto detection');
+    
+        % Sliders for automatic detection
+        detectionSettings = [];
+        uicontrol(peakAnalysisTab, 'Units', 'Normalized'...
+                                   , 'Position', [0.05 0.05 0.8 0.1]...
+                                   , 'String', 'Detect Peaks'...
+                                   , 'Callback', {@detect_Peaks, abrObj, dataCursorObj, abrPlot, detectionSettings} ...
+                                   );
+    % ----------------------------
+    
+    % --------- Tables/Selection Tab
+    waveTab = uitab(analysisTabGroup, 'Title', 'Waves');
+    
+    uitable(waveTab, 'ColumnName', {'Timepoints', 'Amplitudes'}...
+                   , 'ColumnEditable', false...
+                   , 'Units', 'Normalized'...
+                   , 'Position', [0.1 0.5 0.8 0.3]...
+                   , 'Tag', sprintf('wavePoints%d', n)...
+                   );   
+               
+    uitable(waveTab, 'ColumnName', {'Peak to peak amplitudes', 'Latencies'}...
+                   , 'ColumnEditable', false...
+                   , 'Units', 'Normalized'...
+                   , 'Position', [0.1 0.1 0.8 0.3]...
+                   , 'Tag', sprintf('amplitudes%d', n)...
+                   );
+    % -----------------------------
+    % ----------- Export Tab
+    exportTab = uitab(analysisTabGroup, 'Title', 'Export');
+        
+    % Export button      
+    uicontrol(exportTab, 'Style', 'pushbutton'...
+                     , 'String', 'Export'...
+                     , 'Units', 'Normalized'...
+                     , 'FontUnits', 'Normalized'...
+                     , 'FontSize', 0.5 ...
+                     , 'Position', [0.1 0.1 0.5 0.1]...
+                     , 'Callback', {@export , n}...
+                    ); 
+    % -----------------------------
+    % Save button
+    uicontrol(analysisFig, 'Style', 'pushbutton'...
+                         , 'String', 'Save points'...
+                         , 'Units', 'Normalized'...
+                         , 'Position', [analysisTabGroup.Position(1)... X
+                                        analysisTabGroup.Position(2)-0.1 ... Y
+                                        analysisTabGroup.Position(3)/2 ... Width
+                                        0.1]... Height
+                         , 'BackgroundColor', [0.7 0.9 0.7] ...
+                         , 'Callback', {@save_Points, n} ...
+                         )
+    % Delete button
+    uicontrol(analysisFig, 'Style', 'pushbutton' ...
+                         , 'String', 'Delete all'...
+                         , 'Units','Normalized'...
+                         , 'Position', [analysisTabGroup.Position(1) + analysisTabGroup.Position(3)/2 ... X
+                                        analysisTabGroup.Position(2)-0.1 ... Y
+                                        analysisTabGroup.Position(3)/2 ... Width
+                                        0.1] ... Height
+                         , 'BackgroundColor', [1 0.5 0.5] ...
+                         , 'Callback', {@delete_Datatips, dataCursorObj} ...
+                         );
+                     
+    % Analysis structure
+    analysisData.abrObj = abrObj;
+    analysisData.waves = [];
+    analysisData.latencies = [];
+    guidata(analysisFig, analysisData)
+end
+function detect_Peaks(~, ~, abrObj,  dataCursorObj, abrPlot, settings)
+if nargin < 5 || isempty(settings)
+    settings.Npeaks = 4;
+    settings.Threshold = 0;
+    settings.MinPeakDistance = 0;
+    settings.MinPeakWidth = 0;
+    settings.MinPeakProminence = 0;
+    settings.MinPeakHeight = 0;
+end
+    abrSig = abrObj.amplitude;
+
+    t = abrObj.timeVector;
+    noiseLevel = abrObj.noiseLevel;
+  
+    
+    
+    
+    % Get positive peaks
+    [peaks, locs] = findpeaks(abrSig(t>1e-3), t(t>1e-3) ...
+                                        , 'MinPeakHeight', noiseLevel(1)...
+                                        ..., 'MinPeakProminence', data(n).peakDetectionSettings.Prominence ...
+                                        , 'NPeaks', 4 ...                                        
+                                        ..., 'Annotate', 'extents'...
+                                        ..., 'Threshold', data(n).peakDetectionSettings.Threshold ...
+                                        ..., 'MinPeakDistance', data(n).peakDetectionSettings.Distance...
+                                        ..., 'MinPeakWidth', data(n).peakDetectionSettings.Width ...
+                                        );
+                                    
+    
+    
+    % Get negative peaks
+    [negPeaks, negLocs] = findpeaks(-abrSig(t>1e-3), t(t>1e-3), 'MinPeakHeight', -noiseLevel(2)...
+                                               ..., 'MinPeakProminence', 0.5 ...
+                                               , 'NPeaks', settings.Npeaks ...
+                                               ..., 'Annotate', 'extents'...
+                                               );
+                                           
+    
+    
+    % Create datatip
+    if verLessThan('Matlab', '9.7')
+        % Positive peaks   
+        for i = 1:length(peaks)
+            posTip = dataCursorObj.createDatatip(abrPlot);
+            posTip.Position = [locs(i), peaks(i)];
+        end
+        
+        % Negative peaks
+        for j = 1:length(negPeaks)
+            negTip = dataCursorObj.createDatatip(abrPlot);
+            negTip.Position = [negLocs(j), -negPeaks(j)];
+        end
+    else
+        for i = 1:length(peaks)
+          datatip(abrPlot, locs(i), peaks(i))
+        end
+        for j = 1:length(negPeaks)
+          datatip(abrPlot, negLocs(j), -negPeaks(j))
+        end
+
+
+    end
+      
+    
+end
+function select_WaveFromBrush(fig, axStruct)
+%     data = guidata(fig);
+    
+    ax = axStruct.Axes;
+    abrPlot = findobj(ax, '-regexp', 'Tag', 'recording_\d*');
+      
+    
+    idx = logical(abrPlot.BrushData);
+%     
+    if any(idx)
+        disp('Selection has been made with the brush')
+        t = abrPlot.XData;
+        amp = abrPlot.YData;        
+        
+        brushSelection = [t(idx) ; amp(idx)];
+        
+        % Select min and max values within the selection with respect to
+        % the amplitude
+        [~, minIdx] = min(brushSelection(2,:));
+        [~, maxIdx] = max(brushSelection(2,:));
+%         
+        if verLessThan('Matlab', '9.7') % The datatip command doesn't exist before Matlab 2019b
+            cursor = datacursormode(fig);
+            
+            dtMin = cursor.createDatatip(abrPlot);
+            dtMax = cursor.createDatatip(abrPlot);
+
+            dtMin.Position = [brushSelection(1, minIdx), brushSelection(2, minIdx)];
+            dtMax.Position = [brushSelection(1, maxIdx), brushSelection(2, maxIdx)];
+        else
+            datatip(abrPlot, brushSelection(1, minIdx), brushSelection(2, minIdx))
+            datatip(abrPlot, brushSelection(1, maxIdx), brushSelection(2, maxIdx))
+        end
+    end
+end
+function set_DetectionSetting(sliderObj, ~, labelObj, n)
+   
+    data = guidata(sliderObj);    
+    
+    feature = extractAfter(sliderObj.Tag, '_');
+    
+    % Set prominence value in the data structure 
+    data(n).peakDetectionSettings.(feature) = sliderObj.Value;
+    
+    % Update slider label
+    update_Label(labelObj, sliderObj.Value)
+%     label = findobj('Tag', sprintf('prominenceSliderLabel%d', n));
+%     label.String = num2str(sliderObj.Value);
+    
+    guidata(sliderObj, data)
+    
+    ax = findobj('Tag', sprintf('Ax%d', n));
+    clean_Peaks(ax)
+%     detect_Peaks(sliderObj, [], ax, n)
+end
+
+function update_Label(labelObj, val)
+    setting = extractBefore(labelObj.String, ':');
+    setting = replace(setting, ' ', '');
+    labelObj.String = join([setting, ":", num2str(val)]);
+    
+end
+
+function delete_Datatips(~, ~, dataCursorObj)
+% Ask confirmation
+    answer = questdlg('Are you sure you want to delete all datatips?', 'Delete datatips', 'Yes', 'No', 'Yes');
+    if strcmp(answer, 'Yes')
+        removeAllDataCursors(dataCursorObj)
+    else
+        return
+    end
+
+end
+
+function save_Points(saveButton, ~, n)
+%         data = guidata(saveButton);   
+        analysisData = guidata(saveButton);
+        fig = saveButton.Parent;
+        
+        % Access to datatips
+        dataCursorObj = datacursormode(fig);
+        allDatatips = getCursorInfo(dataCursorObj);
+        
+        % Preallocate waves vector
+        waves = nan(length(allDatatips),2);
+                
+        if isempty(allDatatips)
+            msgbox('No points has been selected.', 'Missing selected data', 'error')
+            return
+        elseif mod(length(allDatatips) , 2) ~= 0 % If the number of points selected is odd
+            msgbox('An even number of points must be selected.', 'Missing selected data', 'error')
+            return
+        end
+
+        for i = 1:length(allDatatips)
+               waves(i,:) = allDatatips(i).Position;%             
+        end
+        
+        
+        waves = sortrows(waves);
+        analysisData.waves = waves;
+
+        % Compute latencies
+        latencies = [waves(2,1)-1.4e-3; diff(waves(2:2:end,1))];
+        analysisData.latencies = latencies;
+
+        % Get amplitudes
+        analysisData.amplitudes = compute_Amplitudes(waves);
+
+        % Update tables
+        wavePointsTableObj = findobj('Tag', sprintf('wavePoints%d', n));
+        amplitudesTableObj = findobj('Tag', sprintf('amplitudes%d', n));
+        fill_Table(wavePointsTableObj, waves)
+        fill_Table(amplitudesTableObj, [analysisData.amplitudes analysisData.latencies])
+        amplitudesTableObj.RowName = compose('Wave %d', (1:length(analysisData.amplitudes))');
+        guidata(saveButton, analysisData)
+    end
+
+    function export(exportButton, ~, n)
+        data = guidata(exportButton);
+        if isempty(data(n).waves)
+            msgbox('No point has been selected and saved.', 'No saved points', 'error') 
+            return        
+        end
+
+
+        % Get ABR vector
+%         timepoints = data(n).timepoints;
+%         abrVector = data(n).abr;
+
+        % Get selected points
+        selectedTimepoints = data(n).waves(:,1);
+        amplitudes = data(n).waves(:,2);
+        latencies = data(n).latencies;
+
+        % Get corresponding amplitudes
+        peak2peak = data(n).amplitudes;
+        
+        noiseLevel = data(n).abr.noiseLevel;
+        % Format all data for excel sheet
+
+        C = cell(data(n).abr.Npoints+1,7);
+
+        C(1,1:7) = {'Time (ms)', 'Recorded ABR (mV)', 'Selected time points (ms)', 'Selected Amplitude (mV)', 'Peak to peak amplitude (mV)', 'Latencies (ms)', 'Noise Level (mV)'};
+        C(2:end,1) = num2cell(Scale.convert_Units(analysisData.abrObj.timeVector, analysisData.abrObj.timeScale, Scale('m')));
+        C(2:end,2) = num2cell(Scale.convert_Units(analysisData.abrObj.amplitude, analysisData.abrObj.ampScale, Scale('m')));
+
+        C(2:2+length(selectedTimepoints)-1,3) = num2cell(Scale.convert_Units(selectedTimepoints, analysisData.abrObj.timeScale, Scale('m')));    
+        C(2:2+length(amplitudes)-1,4) = num2cell(Scale.convert_Units(amplitudes, analysisData.abrObj.ampScale, Scale('m')));
+
+        C(2:2+length(peak2peak)-1,5) = num2cell(Scale.convert_Units(peak2peak, analysisData.abrObj.ampScale, Scale('m')));
+        C(2:2+length(latencies)-1,6) = num2cell(Scale.convert_Units(latencies, analysisData.abrObj.timeScale, Scale('m')));
+
+        C(2:2+length(noiseLevel)-1, 7) = num2cell(Scale.convert_Units(noiseLevel, analysisData.abrObj.ampScale, Scale('m')));
+        % Ask whether the user wants to create a new file, or to save into an
+        % existing one
+        answer = questdlg('How do you want to save the file?', 'Choose a saving method'...
+                        , 'Create a new file'...
+                        , 'Save in a existing file' ...
+                        , 'Create a new file'...
+                        );
+
+        switch answer
+            case ''
+                return
+            case 'Create a new file'
+                [filename, selpath] = uiputfile('*.xlsx');
+                % Save as a new file
+
+            case 'Save in a existing file'
+                defaultPath = 'D:\DATOS\Thibaud\DRAFT';
+                selpath = uigetdir(defaultPath, 'Select a folder to save');
+
+                % Save in an existing file
+                selPathContent = dir(selpath);
+                files = selPathContent(~[selPathContent(:).isdir]);
+                list = {files(:).name};
+                idx = listdlg('ListString', list);
+                filename = list{idx};
+        end
+
+        if ~isempty(filename)
+            xlswrite(fullfile(selpath, filename), C, sprintf('%ddB', data(n).abr.level))
+        end
+
+
+    end
+
+    function amps = compute_Amplitudes(waves)
+        amps = zeros(round(length(waves)/2,1),1);
+        ampIdx = 0;
+        for i = 2:2:length(waves)        
+                ampIdx = ampIdx + 1;
+                amps(ampIdx) = waves(i,2)-waves(i-1,2);       
+        end
+    end
+
+    function fill_Table(tableObj, values)
+        tableObj.Data = num2cell(values);
+    end
