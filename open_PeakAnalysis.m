@@ -64,9 +64,21 @@ function open_PeakAnalysis(button, ~, n)
                                    );
     % ----------------------------
     
-    % --------- Tables/Selection Tab
+    % --------- Waves Tab
     waveTab = uitab(analysisTabGroup, 'Title', 'Waves');
     
+    % Display waves Checkbox
+    uicontrol(waveTab, 'Style', 'Checkbox'...
+                     , 'String', 'Display Waves'...
+                     , 'Value', 0 ...
+                     , 'FontUnits', 'Normalized'...
+                     , 'FontSize', 0.7 ...
+                     , 'Units', 'Normalized'...
+                     , 'Position', [0.1 0.9 0.5 0.05]...
+                     , 'Callback', {@display_Waves}...
+                     );
+    
+    % Waves tables
     uitable(waveTab, 'ColumnName', {'Timepoints', 'Amplitudes'}...
                    , 'ColumnEditable', false...
                    , 'Units', 'Normalized'...
@@ -121,9 +133,11 @@ function open_PeakAnalysis(button, ~, n)
     analysisData.abrObj = abrObj;
     analysisData.waves = [];
     analysisData.latencies = [];
+    analysisData.WavesIllustration = [];
     analysisData.detectionSettings = detectionSettings;
     guidata(analysisFig, analysisData)
 end
+% ----------- PEAK DETECTION ------------------
 function detect_Peaks(~, ~, abrObj,  dataCursorObj, abrPlot, settings)
 if nargin < 5 || isempty(settings)
     settings.Npeaks = 4;
@@ -178,10 +192,10 @@ end
         end
     else
         for i = 1:length(peaks)
-          datatip(abrPlot, locs(i), peaks(i))
+          datatip(abrPlot, locs(i), peaks(i));
         end
         for j = 1:length(negPeaks)
-          datatip(abrPlot, negLocs(j), -negPeaks(j))
+          datatip(abrPlot, negLocs(j), -negPeaks(j));
         end
 
 
@@ -219,8 +233,8 @@ function select_WaveFromBrush(fig, axStruct)
             dtMin.Position = [brushSelection(1, minIdx), brushSelection(2, minIdx)];
             dtMax.Position = [brushSelection(1, maxIdx), brushSelection(2, maxIdx)];
         else
-            datatip(abrPlot, brushSelection(1, minIdx), brushSelection(2, minIdx))
-            datatip(abrPlot, brushSelection(1, maxIdx), brushSelection(2, maxIdx))
+            datatip(abrPlot, brushSelection(1, minIdx), brushSelection(2, minIdx));
+            datatip(abrPlot, brushSelection(1, maxIdx), brushSelection(2, maxIdx));
         end
     end
 end
@@ -305,9 +319,54 @@ function save_Points(saveButton, ~, n)
         fill_Table(amplitudesTableObj, [analysisData.amplitudes analysisData.latencies])
         amplitudesTableObj.RowName = compose('Wave %d', (1:length(analysisData.amplitudes))');
         guidata(saveButton, analysisData)
+end
+% ---------- WAVES ------------------
+function display_Waves(button, ~)
+analysisData = guidata(button);
+
+if isempty(analysisData.waves)
+    disp('No points were saved')
+    return
+end
+
+if isempty(analysisData.WavesIllustration)
+    analysisData.WavesIllustration = gobjects(0);
+
+    % Lines on peaks
+%     for i = 1:size(analysisData.waves, 1)
+%         analysisData.WavesIllustration(i) = line([analysisData.waves(i,1) analysisData.waves(i,1)], [0 analysisData.waves(i,2)], 'LineStyle', '--');
+%     end
+    
+    % Patch for each wave
+    colors = [0 0.4470 0.7410;
+              0.8500 0.3250 0.0980;
+              0.9290 0.6940 0.1250;
+              0.4940 0.1840 0.5560;
+              0.4660 0.6740 0.1880;
+              0.3010 0.7450 0.9330;
+              0.6350 0.0780 0.1840];
+    for j = 1:2:size(analysisData.waves, 1)-1
+        x = [analysisData.waves(j,1) analysisData.waves(j,1)  analysisData.waves(j+1,1) analysisData.waves(j+1,1)];
+        y = [analysisData.waves(j,2) analysisData.waves(j+1,2) analysisData.waves(j+1,2) analysisData.waves(j,2)];
+        p = patch(x, y, colors(j,:), 'FaceAlpha', 0.3);
+        analysisData.WavesIllustration = cat(2,analysisData.WavesIllustration, p);
     end
 
-    function export(exportButton, ~, n)
+else
+    switch button.Value
+        case 0
+            set(analysisData.WavesIllustration, 'Visible', 'off')
+        case 1
+            set(analysisData.WavesIllustration, 'Visible', 'on')
+    end
+    
+    
+end
+
+guidata(button, analysisData)
+end
+% ---------- EXPORT -----------------
+    function export(exportButton, ~)
         analysisData = guidata(exportButton);
         if isempty(analysisData.waves)
             msgbox('No point has been selected and saved.', 'No points', 'error') 
