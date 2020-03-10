@@ -20,7 +20,43 @@ function open_PeakAnalysis(button, ~, n)
     peakAnalysisTab = uitab(analysisTabGroup, 'Title', 'Auto detection');
     
         % Sliders for automatic detection
-        detectionSettings = [];
+            % Default values
+            detectionSettings.Npeaks = 4;
+            detectionSettings.Height = 1;
+            detectionSettings.Prominence = 2;
+            detectionSettings.Threshold = 2;
+            detectionSettings.Distance = 1;
+            detectionSettings.Width = 2;
+        
+        % Sliders
+        detectionFeatures = ["Npeaks", "Height", "Prominence", "Threshold", "Distance", "Width"];
+        ranges = [1, 0, 0, 0, 0, 0;
+                  8, 5, 5, 5, 5, 5];
+        steps = repmat(1./(ranges(2,:)-ranges(1,:)), 2,1);
+        
+        yoffset = 0.1;
+        for k = 1:length(detectionFeatures)
+            label = uicontrol(peakAnalysisTab, 'Style', 'Text'...
+                                        , 'String', sprintf('%s: 0', detectionFeatures(k)) ...
+                                        , 'HorizontalAlignment', 'Left' ...
+                                        , 'FontUnits', 'Normalized'...
+                                        , 'FontSize', 0.7 ...
+                                        , 'Units', 'Normalized'...
+                                        , 'Position', [0.01, 0.90-(k-1)*yoffset, 0.3, 0.05]...
+                                        );
+
+            uicontrol(peakAnalysisTab, 'Style', 'slider'...
+                                , 'Min', ranges(1,k) ...
+                                , 'Max', ranges(2,k) ...
+                                , 'SliderStep', [steps(1,k) steps(2,k)]...
+                                , 'Value', detectionSettings.(detectionFeatures(k)) ...
+                                , 'Units', 'Normalized'...
+                                , 'Position', [0.4, 0.90-(k-1)*yoffset, 0.6, 0.04] ...
+                                , 'Callback', {@set_DetectionSetting, label} ...
+                                , 'Tag', sprintf('slider_%s', detectionFeatures(k)) ...
+                                );
+        end
+
         uicontrol(peakAnalysisTab, 'Units', 'Normalized'...
                                    , 'Position', [0.05 0.05 0.8 0.1]...
                                    , 'String', 'Detect Peaks'...
@@ -85,6 +121,7 @@ function open_PeakAnalysis(button, ~, n)
     analysisData.abrObj = abrObj;
     analysisData.waves = [];
     analysisData.latencies = [];
+    analysisData.detectionSettings = detectionSettings;
     guidata(analysisFig, analysisData)
 end
 function detect_Peaks(~, ~, abrObj,  dataCursorObj, abrPlot, settings)
@@ -187,24 +224,24 @@ function select_WaveFromBrush(fig, axStruct)
         end
     end
 end
-function set_DetectionSetting(sliderObj, ~, labelObj, n)
+function set_DetectionSetting(sliderObj, ~, labelObj)
    
-    data = guidata(sliderObj);    
+    analysisData = guidata(sliderObj);    
     
     feature = extractAfter(sliderObj.Tag, '_');
     
     % Set prominence value in the data structure 
-    data(n).peakDetectionSettings.(feature) = sliderObj.Value;
+    analysisData.detectionSettings.(feature) = sliderObj.Value;
     
     % Update slider label
     update_Label(labelObj, sliderObj.Value)
 %     label = findobj('Tag', sprintf('prominenceSliderLabel%d', n));
 %     label.String = num2str(sliderObj.Value);
     
-    guidata(sliderObj, data)
+    guidata(sliderObj, analysisData)
     
-    ax = findobj('Tag', sprintf('Ax%d', n));
-    clean_Peaks(ax)
+%     ax = findobj('Tag', sprintf('Ax%d', n));
+%     clean_Peaks(ax)
 %     detect_Peaks(sliderObj, [], ax, n)
 end
 

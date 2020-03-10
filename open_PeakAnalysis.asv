@@ -21,6 +21,36 @@ function open_PeakAnalysis(button, ~, n)
     
         % Sliders for automatic detection
         detectionSettings = [];
+        
+        % Sliders
+        peakDetectionSettings = ["Npeaks", "Height", "Prominence", "Threshold", "Distance", "Width"];
+        ranges = [1, 0, 0, 0, 0, 0;
+                  8, 5, 5, 5, 5, 5];
+        steps = repmat(1./(ranges(2,:)-ranges(1,:)), 2,1);
+
+        yoffset = 0.1;
+        for k = 1:length(peakDetectionSettings)
+            label = uicontrol(peakAnalysisTab, 'Style', 'Text'...
+                                        , 'String', sprintf('%s: 0', peakDetectionSettings(k)) ...
+                                        , 'HorizontalAlignment', 'Left' ...
+                                        , 'FontUnits', 'Normalized'...
+                                        , 'FontSize', 0.8 ...
+                                        , 'Units', 'Normalized'...
+                                        , 'Position', [0.01,0.90-(k-1)*yoffset,0.45,0.09]...
+                                        );
+
+            uicontrol(peakAnalysisTab, 'Style', 'slider'...
+                                , 'Min', ranges(1,k) ...
+                                , 'Max', ranges(2,k) ...
+                                , 'SliderStep', [steps(1,k) steps(2,k)]...
+                                , 'Value', 4 ...
+                                , 'Units', 'Normalized'...
+                                , 'Position', [0.5,0.90-(k-1)*yoffset,0.45,0.05] ...
+                                , 'Callback', {@set_DetectionSetting, label, n} ...
+                                , 'Tag', sprintf('slider_%s', peakDetectionSettings(k)) ...
+                                );
+        end
+
         uicontrol(peakAnalysisTab, 'Units', 'Normalized'...
                                    , 'Position', [0.05 0.05 0.8 0.1]...
                                    , 'String', 'Detect Peaks'...
@@ -271,9 +301,9 @@ function save_Points(saveButton, ~, n)
     end
 
     function export(exportButton, ~, n)
-        data = guidata(exportButton);
-        if isempty(data(n).waves)
-            msgbox('No point has been selected and saved.', 'No saved points', 'error') 
+        analysisData = guidata(exportButton);
+        if isempty(analysisData.waves)
+            msgbox('No point has been selected and saved.', 'No points', 'error') 
             return        
         end
 
@@ -283,24 +313,24 @@ function save_Points(saveButton, ~, n)
 %         abrVector = data(n).abr;
 
         % Get selected points
-        selectedTimepoints = data(n).waves(:,1);
-        amplitudes = data(n).waves(:,2);
-        latencies = data(n).latencies;
+        selectedTimepoints = analysisData.waves(:,1);
+        selectedPeaks = analysisData.waves(:,2);
+        latencies = analysisData.latencies;
 
         % Get corresponding amplitudes
-        peak2peak = data(n).amplitudes;
+        peak2peak = analysisData.amplitudes;
         
-        noiseLevel = data(n).abr.noiseLevel;
+        noiseLevel = analysisData.abrObj.noiseLevel;
+        
         % Format all data for excel sheet
+        C = cell(analysisData.abrObj.Npoints+1,7);
 
-        C = cell(data(n).abr.Npoints+1,7);
-
-        C(1,1:7) = {'Time (ms)', 'Recorded ABR (mV)', 'Selected time points (ms)', 'Selected Amplitude (mV)', 'Peak to peak amplitude (mV)', 'Latencies (ms)', 'Noise Level (mV)'};
+        C(1,1:7) = {'Time (ms)', 'Recorded ABR (mV)', 'Selected time points (ms)', 'Selected Peaks (mV)', 'Peak to peak amplitude (mV)', 'Latencies (ms)', 'Noise Level (mV)'};
         C(2:end,1) = num2cell(Scale.convert_Units(analysisData.abrObj.timeVector, analysisData.abrObj.timeScale, Scale('m')));
         C(2:end,2) = num2cell(Scale.convert_Units(analysisData.abrObj.amplitude, analysisData.abrObj.ampScale, Scale('m')));
 
         C(2:2+length(selectedTimepoints)-1,3) = num2cell(Scale.convert_Units(selectedTimepoints, analysisData.abrObj.timeScale, Scale('m')));    
-        C(2:2+length(amplitudes)-1,4) = num2cell(Scale.convert_Units(amplitudes, analysisData.abrObj.ampScale, Scale('m')));
+        C(2:2+length(selectedPeaks)-1,4) = num2cell(Scale.convert_Units(selectedPeaks, analysisData.abrObj.ampScale, Scale('m')));
 
         C(2:2+length(peak2peak)-1,5) = num2cell(Scale.convert_Units(peak2peak, analysisData.abrObj.ampScale, Scale('m')));
         C(2:2+length(latencies)-1,6) = num2cell(Scale.convert_Units(latencies, analysisData.abrObj.timeScale, Scale('m')));
@@ -334,7 +364,7 @@ function save_Points(saveButton, ~, n)
         end
 
         if ~isempty(filename)
-            xlswrite(fullfile(selpath, filename), C, sprintf('%ddB', data(n).abr.level))
+            xlswrite(fullfile(selpath, filename), C, sprintf('%ddB', analysisData.abrObj.level))
         end
 
 
