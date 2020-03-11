@@ -348,8 +348,10 @@ if isempty(analysisData.WavesIllustration)
     for j = 1:2:size(analysisData.waves, 1)-1
         x = [analysisData.waves(j,1) analysisData.waves(j,1)  analysisData.waves(j+1,1) analysisData.waves(j+1,1)];
         y = [analysisData.waves(j,2) analysisData.waves(j+1,2) analysisData.waves(j+1,2) analysisData.waves(j,2)];
-        p = patch(x, y, colors(j,:), 'FaceAlpha', 0.3);
-        analysisData.WavesIllustration = cat(2,analysisData.WavesIllustration, p);
+        p = patch(x, y, colors((j+1)/2,:), 'FaceAlpha', 0.3);
+        str = sprintf('WAVE %d', (j+1)/2);
+        t = text(analysisData.waves(j,1), analysisData.waves(j+1,2) + 5e-6, str, 'Color', colors((j+1)/2,:), 'VerticalAlignment', 'top');
+        analysisData.WavesIllustration = cat(2,analysisData.WavesIllustration, p, t);
     end
 
 else
