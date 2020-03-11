@@ -368,42 +368,56 @@ end
 guidata(button, analysisData)
 end
 % ---------- EXPORT -----------------
-    function export(exportButton, ~)
+function export(exportButton, ~, n)
         analysisData = guidata(exportButton);
-        if isempty(analysisData.waves)
-            msgbox('No point has been selected and saved.', 'No points', 'error') 
+        if isempty(analysisData(n).waves)
+            msgbox('No point has been selected and saved.', 'No saved points', 'error') 
             return        
         end
 
 
-        % Get ABR vector
-%         timepoints = data(n).timepoints;
-%         abrVector = data(n).abr;
-
         % Get selected points
         selectedTimepoints = analysisData.waves(:,1);
-        selectedPeaks = analysisData.waves(:,2);
+        amplitudes = analysisData.waves(:,2);
         latencies = analysisData.latencies;
 
         % Get corresponding amplitudes
-        peak2peak = analysisData.amplitudes;
+        peak2peak = analysisData(n).amplitudes;
         
-        noiseLevel = analysisData.abrObj.noiseLevel;
+        noiseLevel = (analysisData(n).abr.noiseLevel)';
         
-        % Format all data for excel sheet
-        C = cell(analysisData.abrObj.Npoints+1,7);
-
-        C(1,1:7) = {'Time (ms)', 'Recorded ABR (mV)', 'Selected time points (ms)', 'Selected Peaks (mV)', 'Peak to peak amplitude (mV)', 'Latencies (ms)', 'Noise Level (mV)'};
-        C(2:end,1) = num2cell(Scale.convert_Units(analysisData.abrObj.timeVector, analysisData.abrObj.timeScale, Scale('m')));
-        C(2:end,2) = num2cell(Scale.convert_Units(analysisData.abrObj.amplitude, analysisData.abrObj.ampScale, Scale('m')));
-
-        C(2:2+length(selectedTimepoints)-1,3) = num2cell(Scale.convert_Units(selectedTimepoints, analysisData.abrObj.timeScale, Scale('m')));    
-        C(2:2+length(selectedPeaks)-1,4) = num2cell(Scale.convert_Units(selectedPeaks, analysisData.abrObj.ampScale, Scale('m')));
-
-        C(2:2+length(peak2peak)-1,5) = num2cell(Scale.convert_Units(peak2peak, analysisData.abrObj.ampScale, Scale('m')));
-        C(2:2+length(latencies)-1,6) = num2cell(Scale.convert_Units(latencies, analysisData.abrObj.timeScale, Scale('m')));
-
-        C(2:2+length(noiseLevel)-1, 7) = num2cell(Scale.convert_Units(noiseLevel, analysisData.abrObj.ampScale, Scale('m')));
+        % Convert vectors in ms and mV
+        time = Scale.convert_Units((analysisData.abr.timeVector)', analysisData.abr.timeScale, Scale('m'));
+        amp = Scale.convert_Units(analysisData.abr.amplitude, analysisData.abr.ampScale, Scale('m'));
+        selTimePoints = Scale.convert_Units(selectedTimepoints, analysisData.abr.timeScale, Scale('m'));
+        selAmplitudes = Scale.convert_Units(amplitudes, analysisData.abr.ampScale, Scale('m'));
+        peak2peak = Scale.convert_Units(peak2peak, analysisData.abr.ampScale, Scale('m'));
+        latencies = Scale.convert_Units(latencies, analysisData.abr.timeScale, Scale('m'));
+        noiseLevel = Scale.convert_Units(noiseLevel, analysisData.abr.ampScale, Scale('m'));
+        
+        % Pad with NaN to get the same vector length
+        selTimePoints = [selTimePoints; nan(length(time)-length(selTimePoints), 1)];
+        selAmplitudes = [selAmplitudes; nan(length(time)-length(selAmplitudes), 1)];
+        peak2peak = [peak2peak; nan(length(time)-length(peak2peak), 1)];
+        latencies = [latencies; nan(length(time)-length(latencies), 1)];
+        noiseLevel = [noiseLevel; nan(length(time)-length(noiseLevel), 1)];
+        
+        % Create table
+        T = table(time, amp, selTimePoints, selAmplitudes, peak2peak, latencies, noiseLevel);
+        colNames = ["Time", "Amplitude", "SelectedTimes", "SelectedAmplitudes", "Peak2Peak", "Latencies", "NoiseLevel"];
+        units = ["ms", "mV", "ms", "mV", "mV", "ms", "mV"];
+        varNames = (compose("%s (%s)", colNames', units'))';
+        
+        if verLessThan('matlab', '9.7')            
+            % Pass a string array for VariableNames is not allowed before MATLAB 9.5 (2018b)
+            % Also variable names must be valid (isvarname returning true),
+            % so inserting units is not possible.
+            T.Properties.VariableNames = cellstr(colNames);
+        else
+            T.Properties.VariableNames = varNames;
+        end
+        
+        
         % Ask whether the user wants to create a new file, or to save into an
         % existing one
         answer = questdlg('How do you want to save the file?', 'Choose a saving method'...
@@ -416,27 +430,91 @@ end
             case ''
                 return
             case 'Create a new file'
-                [filename, selpath] = uiputfile('*.xlsx');
-                % Save as a new file
+                [filename, selectedPath] = uiputfile({'*.xlsx'; '*.xls'; '*.csv'});
+                
 
-            case 'Save in a existing file'
-                defaultPath = 'D:\DATOS\Thibaud\DRAFT';
-                selpath = uigetdir(defaultPath, 'Select a folder to save');
-
-                % Save in an existing file
-                selPathContent = dir(selpath);
-                files = selPathContent(~[selPathContent(:).isdir]);
-                list = {files(:).name};
-                idx = listdlg('ListString', list);
-                filename = list{idx};
+            case 'Save in a existing file'  
+                [filename, selectedPath] = uigetfile({'*.xlsx'; '*.xls'; '*.csv'});
         end
-
-        if ~isempty(filename)
-            xlswrite(fullfile(selpath, filename), C, sprintf('%ddB', analysisData.abrObj.level))
+        
+        
+        % Use Writetable to export (proved to work on a Mac computer)
+        try
+            writetable(T, fullfile(selectedPath, filename), 'Sheet', analysisData.abr.label)
+        catch ME
+            msgbox(sprintf('An error occurred when exporting ABRs:\n %s', ME.message), '', 'error')
         end
-
-
+  
     end
+%     function export(exportButton, ~)
+%         analysisData = guidata(exportButton);
+%         if isempty(analysisData.waves)
+%             msgbox('No point has been selected and saved.', 'No points', 'error') 
+%             return        
+%         end
+% 
+% 
+%         % Get ABR vector
+% %         timepoints = data(n).timepoints;
+% %         abrVector = data(n).abr;
+% 
+%         % Get selected points
+%         selectedTimepoints = analysisData.waves(:,1);
+%         selectedPeaks = analysisData.waves(:,2);
+%         latencies = analysisData.latencies;
+% 
+%         % Get corresponding amplitudes
+%         peak2peak = analysisData.amplitudes;
+%         
+%         noiseLevel = analysisData.abrObj.noiseLevel;
+%         
+%         % Format all data for excel sheet
+%         C = cell(analysisData.abrObj.Npoints+1,7);
+% 
+%         C(1,1:7) = {'Time (ms)', 'Recorded ABR (mV)', 'Selected time points (ms)', 'Selected Peaks (mV)', 'Peak to peak amplitude (mV)', 'Latencies (ms)', 'Noise Level (mV)'};
+%         C(2:end,1) = num2cell(Scale.convert_Units(analysisData.abrObj.timeVector, analysisData.abrObj.timeScale, Scale('m')));
+%         C(2:end,2) = num2cell(Scale.convert_Units(analysisData.abrObj.amplitude, analysisData.abrObj.ampScale, Scale('m')));
+% 
+%         C(2:2+length(selectedTimepoints)-1,3) = num2cell(Scale.convert_Units(selectedTimepoints, analysisData.abrObj.timeScale, Scale('m')));    
+%         C(2:2+length(selectedPeaks)-1,4) = num2cell(Scale.convert_Units(selectedPeaks, analysisData.abrObj.ampScale, Scale('m')));
+% 
+%         C(2:2+length(peak2peak)-1,5) = num2cell(Scale.convert_Units(peak2peak, analysisData.abrObj.ampScale, Scale('m')));
+%         C(2:2+length(latencies)-1,6) = num2cell(Scale.convert_Units(latencies, analysisData.abrObj.timeScale, Scale('m')));
+% 
+%         C(2:2+length(noiseLevel)-1, 7) = num2cell(Scale.convert_Units(noiseLevel, analysisData.abrObj.ampScale, Scale('m')));
+%         % Ask whether the user wants to create a new file, or to save into an
+%         % existing one
+%         answer = questdlg('How do you want to save the file?', 'Choose a saving method'...
+%                         , 'Create a new file'...
+%                         , 'Save in a existing file' ...
+%                         , 'Create a new file'...
+%                         );
+% 
+%         switch answer
+%             case ''
+%                 return
+%             case 'Create a new file'
+%                 [filename, selpath] = uiputfile('*.xlsx');
+%                 % Save as a new file
+% 
+%             case 'Save in a existing file'
+%                 defaultPath = 'D:\DATOS\Thibaud\DRAFT';
+%                 selpath = uigetdir(defaultPath, 'Select a folder to save');
+% 
+%                 % Save in an existing file
+%                 selPathContent = dir(selpath);
+%                 files = selPathContent(~[selPathContent(:).isdir]);
+%                 list = {files(:).name};
+%                 idx = listdlg('ListString', list);
+%                 filename = list{idx};
+%         end
+% 
+%         if ~isempty(filename)
+%             xlswrite(fullfile(selpath, filename), C, sprintf('%ddB', analysisData.abrObj.level))
+%         end
+% 
+% 
+%     end
 
     function amps = compute_Amplitudes(waves)
         amps = zeros(round(length(waves)/2,1),1);
