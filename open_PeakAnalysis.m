@@ -445,6 +445,11 @@ end
                 ampIdx = ampIdx + 1;
                 amps(ampIdx) = waves(i,2)-waves(i-1,2);       
         end
+        
+        if any(amps < 0)
+           msgbox('At least one wave maplitude is negative. Check your selected peaks.', 'Negative amplitude', 'warn') 
+        end
+        
     end
 
     function fill_Table(tableObj, values)
