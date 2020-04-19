@@ -3,9 +3,10 @@ classdef ABR
         amplitude = [];
         fs 
         level
+        frequency = NaN;
         side
         subjectID
-        label = "";
+        label = '';
         timeUnit = 's';
         ampUnit = 'V';
         timeScale = Scale('unit');
@@ -38,61 +39,62 @@ classdef ABR
             end
             
         end        
-        function export(abrObj, filename)
+        function export(abrObj, filename, showLabels)
             % Saves the ABR array in an excel sheet
             %   Time is represented in lines of the excel sheet
             %   Dimension one is represented as columns of the excel sheet
             %   Other dimensions are represented as sheets
-
+            if nargin < 3
+                showLabels = true;
+            end
             
-            [filepath, name, ext] = fileparts(filename);
+            [filepath, ~, ext] = fileparts(filename);
             if isempty(ext) % If no extension has been entered
                 ext = 'xlsx';
             end
             
+%             Nabrs = numel(abrObj);
             maxNpoints = max([abrObj.Npoints]);
+            abrData = cell(maxNpoints, size(abrObj,1));
+            Labels = cell(1,numel(abrObj));
             
+            % Reshape abrObj
+%             abrObj = reshape(abrObj, size(abrObj,1), []);
+            
+%             % Check that all abrs have the same number of points
+%             if isscalar(unique([abrObj.Npoints]))
+%                 abrMatrix = zeros(abrObj(1).Npoints, size(abrObj,1));
+%             else
+%                 % Use cells to get around it
+%             end
            
            
-            % Get abr amplitudes in a table
-            Nabr = numel(abrObj);
-            
-                % Preallocation
-                exportTable = table('Size', [maxNpoints, Nabr+1], 'VariableTypes', repmat("double", 1, Nabr + 1));
-                exportTable{:,1} = (abrObj(1).timeVector)';
-                
+            % Get abr amplitudes
             for i = 1:size(abrObj,1)
-                % Padd with NaN if necessary
-                ampVector = abrObj(i).amplitude;
-                
-                if length(ampVector) ~= maxNpoints
-                   ampVector =  [ampVector; nan(maxNpoints - length(ampVector),1)];
-                end
-                exportTable{:,i+1} = ampVector;
+                abrData(1:abrObj(i).Npoints,i) = num2cell(abrObj(i).amplitude);
+                Labels{1,i} = abrObj(i).label;
             end
             
-            % Labels
-            varNames = ["Time", [abrObj.label]];
-            units = join([string({abrObj(1).timeScale abrObj.ampScale}); string({abrObj(1).timeUnit abrObj.ampUnit})],1);
-            units = erase(units, [" ", "unit"]);
-            
-            exportTable.Properties.VariableNames = (compose("%s (%s)", varNames', units'))';
-
-            
-            try
-                writetable(exportTable, fullfile(filepath, insertAfter(name, name, ext)))
-                msgbox(sprintf('ABRs exported with success in %s', fullfile(filepath, [name ext])), 'ABR exported')
-            catch ME
-                msgbox(sprintf('An error occurred when exporting ABRs:\n %s', ME.message), '', 'error')
+            sheet = unique(string([abrObj.subjectID]));
+            if showLabels
+                exportData = [Labels;abrData];
+            else
+                exportData = abrData;
             end
-
-        end   
-        
+            
+            [status, message] = xlswrite(fullfile(filepath, [filename '.' ext]), exportData, sheet);
+            if status
+                % success
+                msgbox(sprintf('ABRs exported with success in %s', fullfile(filepath, [filename '.' ext])), 'ABR exported')
+            else
+                % show message
+                msgbox(sprintf('An error occurred when exporting ABRs:\n %s', message.message), '', 'error')
+            end
+        end        
         function openInGUI(abrObj)
             ABR_GUI(abrObj)
         end
-        
-        function plot(abrObj, varargin)
+        function abrPlot = plot(abrObj, varargin)
             plotProperties = varargin;
             if ~isempty(varargin) && isa(varargin{1}, 'matlab.graphics.axis.Axes')
                 ax = varargin{1};                
@@ -138,8 +140,9 @@ classdef ABR
             end
             
             plotProperties = plotProperties(~(timeunitIdx + ampunitIdx + YlimitsIdx + XlimitsIdx));
-            
+           
             Nabrs = numel(abrObj);
+            abrPlot = gobjects(Nabrs, 1); 
             for n = 1:Nabrs
                 if createFigFlag
                     figure('Name', abrObj(n).label)
@@ -154,8 +157,8 @@ classdef ABR
                 amp = Scale.convert_Units(abrObj(n).amplitude, abrObj(n).ampScale, Scale.(ampPrefix));
                 noiseLvl = Scale.convert_Units(abrObj(n).noiseLevel, abrObj(n).ampScale, Scale.(ampPrefix));
                 
-                plot(ax, t, amp, plotProperties{:}...
-                                ,'Tag', sprintf('recording_%d', abrObj(n).level))
+                abrPlot(n) = plot(ax, t, amp, plotProperties{:}...
+                               , 'Tag', sprintf('recording_%d', abrObj(n).level));
                 
                 ax.XLabel.String = sprintf('Time (%s)', timeunit);
                 ax.XLabel.FontSize = 16;
@@ -169,19 +172,22 @@ classdef ABR
                 ax.YGrid = 'on';
                 
                 % Line of the recording delay
-%                 sampleLimit = ceil(1e-3 * abrObj(n).fs) + 1;
                 recordingDelay = 1.4414; %ms
                 recordingDelay = Scale.convert_Units(recordingDelay, Scale('m'), Scale(timePrefix));
                 line(ax,[recordingDelay recordingDelay], [min(amp) max(amp)]...
                                , 'LineStyle', '--'...
                                , 'Color', 'k'...
                                )
+                           
                  % Line of Y=0
                 line(ax,get(ax, 'XLim'), [0 0]...
                             , 'LineStyle', '-'...
                             , 'Color', [0.3 0.3 0.3]...
                             )
+                        
                  % Noise confidence intervals
+                 sideNoise = ["Upper", "Lower"; % Text
+                              "bottom", "top"]; % VerticalAlignment
                  for i = 1:2
                      line(ax, [t(1) t(end)]...
                             , [noiseLvl(i) noiseLvl(i)]...
@@ -189,6 +195,12 @@ classdef ABR
                             , 'LineStyle', '--'...
                             , 'Tag', 'noiseLevel'...
                             )
+                        
+                    text(ax, t(10), noiseLvl(i) * 1.2 ...
+                             , sprintf('%s noise = %.2e %s', sideNoise(1,i), noiseLvl(i), ampunit)...
+                             , 'VerticalAlignment', char(sideNoise(2,i))...
+                             , 'Tag', 'noiseLevel_Label' ...
+                             )
                  end
                  % Set axes limits
                  set(ax, 'XLim', xlim)
@@ -281,6 +293,34 @@ classdef ABR
             
         end
         
+        function [timePeaks, peaks] = get_Peaks(abrObj)
+           % Get peaks from ABR amplitudes 
+           
+           % Get positive peaks
+           [peaks, timePeaks] = findpeaks(abrObj.amplitude, abrObj.fs...
+                                                     , 'MinPeakHeight', abrObj.noiseLevel(1)...
+                                                     ..., 'MinPeakDistance', 0.5e-3 ...
+                                                     );
+           
+           % Get negative peaks
+           [negpeaks, negTimePeaks] = findpeaks(-abrObj.amplitude,  abrObj.fs...
+                                                            , 'MinPeakHeight', -abrObj.noiseLevel(2)...
+                                                            ..., 'MinPeakDistance', 0.5e-3 ...                                                            
+                                                            );
+           
+           % Delete peaks found before the recording delay
+           recordingDelay = 1.4414e-3; % s
+           peaks(timePeaks < recordingDelay) = [];
+           timePeaks(timePeaks < recordingDelay) = [];
+           negpeaks(negTimePeaks < recordingDelay) = [];
+           negTimePeaks(negTimePeaks < recordingDelay) = [];
+           
+           % Visually check the peaks (to be deleted later)
+           abrObj.plot
+           hold on
+           plot(timePeaks, peaks, 'o') % Positive peaks
+           plot(negTimePeaks, -negpeaks, 'o') % Negative peaks
+        end
         
         % ---------- DEPENDENT PROPERTIES
         function timeVector = get.timeVector(abrObj)
@@ -294,15 +334,15 @@ classdef ABR
         
         function noiseConfidentInterval = get.noiseLevel(abrObj)
 
-        timeLimit = 1e-3; % 1ms
-        sampleLimit = ceil(timeLimit * abrObj.fs) + 1;
+            timeLimit = 1e-3; % 1ms
+            sampleLimit = ceil(timeLimit * abrObj.fs) + 1;
 
-%         Scale.convert_Units(abrObj.amplitude(1:sampleLimit), abrObj.ampScale)
-        av = mean(abrObj.amplitude(1:sampleLimit));
-        sd = std(abrObj.amplitude(1:sampleLimit));
+    %         Scale.convert_Units(abrObj.amplitude(1:sampleLimit), abrObj.ampScale)
+            av = mean(abrObj.amplitude(1:sampleLimit));
+            sd = std(abrObj.amplitude(1:sampleLimit));
 
-        % Confidence interval of noise
-        noiseConfidentInterval = [av + 2*sd,  av - 2*sd];    
+            % Confidence interval of noise
+            noiseConfidentInterval = [av + 2*sd,  av - 2*sd];    
         end
                
         function minAmp = get_minAmplitude(abrArray)
@@ -329,6 +369,11 @@ classdef ABR
             % Determine levels
             [levels, Nlevels] = ABR.get_Levels(fileData);
             
+            
+            % Determine Frequencies
+            [frequencies, Nfreq] = ABR.get_Frequencies(fileData);
+            
+            
             % Get line indicating subjectID
             subjectIDline = ~cellfun(@isempty, regexp(fileData, 'Subject ID:'));
             subjectIDtxt = strrep(fileData(subjectIDline), ' ', '');
@@ -350,36 +395,53 @@ classdef ABR
             % Determine sample rate
             fs = Npoints./(durations*1e-3);
             
-            % Preallocate abr output object
-            abrObj(Nlevels,1) = ABR();
             
             % Get levels and measurement values
             a = diff(~isnan(double(fileData)));
             idxStart = find(a == 1) + 1;
             idxEnd = find(a == -1);
-            for i = 1:Nlevels
-                dataIdx = idxStart(i):idxEnd(i);
+            Nabrs = length(idxEnd);
+            
+            if isnan(frequencies)
+                frequencies = nan(Nabrs, 1);
+            end
+            
+            % Preallocate abr output object
+            abrObj(Nabrs,1) = ABR();
+            for n = 1:Nabrs
+                dataIdx = idxStart(n):idxEnd(n);
                 
                 
                 abrAmplitude = double(fileData(dataIdx));
-                abrLevel = levels(i);
-                abrFs = fs(i);
+                abrLevel = levels(n);
+                abrFreq = frequencies(n);
+                
+                abrFs = fs(n);
                 
                 % Create label
                 if nargin < 2
-                    [~, name, ~] = fileparts(filename);
-                    label = sprintf("%s_%ddB", name, abrLevel);
+                    [~, name, ~] = fileparts(char(filename));
+                    if isnan(abrFreq)
+                        label = sprintf('%s_%ddB', name, abrLevel);
+                    else
+                        label = sprintf('%s_%ddB_%dHz', name, abrLevel, abrFreq);
+                    end
                 end
                 
-                abrObj(i) = ABR('amplitude', abrAmplitude...
-                              , 'level', abrLevel...
-                              , 'fs', abrFs ...
-                              , 'side', side...
-                              , 'subjectID', subjectID...
-                              , 'label', label...
-                              );
+                
+                abrObj(n) = ABR('amplitude', abrAmplitude...
+                    , 'level', abrLevel...
+                    , 'frequency', abrFreq ...
+                    , 'fs', abrFs ...
+                    , 'side', side...
+                    , 'subjectID', subjectID...
+                    , 'label', label...
+                    );
                 
             end
+            
+            % --------- CHECKS 
+            % Check that combinations of level and frequency are unique
             
             % Check all recordings have the same number of points            
             if ~isscalar(unique([abrObj.Npoints]))
@@ -418,13 +480,33 @@ classdef ABR
             levelLines = ~cellfun(@isempty, regexp(fileData, 'Level'));
             levelsTxt = strrep(fileData(levelLines), ' ', '');
             
-            Nlevels = sum(levelLines);
-            levels = zeros(Nlevels,1);
-            for i = 1:Nlevels
+            N = sum(levelLines);
+            levels = zeros(N,1);
+            for i = 1:N
                 levels(i) = sscanf(levelsTxt(i), 'Level=%ddB');
             end
+            
+            Nlevels = length(unique(levels));
         end
-        
+        function [frequencies, Nfreq] = get_Frequencies(fileData)
+            % Get lines indicating Frequencies
+            freqLines = ~cellfun(@isempty, regexp(fileData, 'Freq'));
+            if all(~freqLines)
+                frequencies = NaN;
+                Nfreq = 1;
+                return
+            end
+            
+            freqTxt = strrep(fileData(freqLines), ' ', '');
+            
+            N = sum(freqLines);
+            frequencies = zeros(N,1);
+            for i = 1:N
+                frequencies(i) = sscanf(freqTxt(i), 'Freq=%ddB');
+            end
+            
+            Nfreq = length(unique(frequencies));
+        end
         function [durations, Ndurations] = get_Durations(fileData)
             % Get lines indicating Levels
             durationLines = ~cellfun(@isempty, regexp(fileData, 'Aqu. Duration:'));
