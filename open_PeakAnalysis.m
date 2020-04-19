@@ -22,11 +22,11 @@ function open_PeakAnalysis(button, ~, n)
         % Sliders for automatic detection
             % Default values
             detectionSettings.Npeaks = 4;
-            detectionSettings.Height = 1;
-            detectionSettings.Prominence = 2;
-            detectionSettings.Threshold = 2;
-            detectionSettings.Distance = 1;
-            detectionSettings.Width = 2;
+            detectionSettings.Height = 0;
+            detectionSettings.Prominence = 0;
+            detectionSettings.Threshold = 0;
+            detectionSettings.Distance = 0;
+            detectionSettings.Width = 0;
         
         % Sliders
         detectionFeatures = ["Npeaks", "Height", "Prominence", "Threshold", "Distance", "Width"];
@@ -148,42 +148,46 @@ function open_PeakAnalysis(button, ~, n)
     guidata(analysisFig, analysisData)
 end
 % ----------- PEAK DETECTION ------------------
-function detect_Peaks(~, ~, abrObj,  dataCursorObj, abrPlot, settings)
-if nargin < 5 || isempty(settings)
-    settings.Npeaks = 4;
-    settings.Threshold = 0;
-    settings.MinPeakDistance = 0;
-    settings.MinPeakWidth = 0;
-    settings.MinPeakProminence = 0;
-    settings.MinPeakHeight = 0;
-end
+function detect_Peaks(detectButton, ~, abrObj,  dataCursorObj, abrPlot)
+% if nargin < 5 || isempty(settings)
+%     settings.Npeaks = 4;
+%     settings.Threshold = 0;
+%     settings.MinPeakDistance = 0;
+%     settings.MinPeakWidth = 0;
+%     settings.MinPeakProminence = 0;
+%     settings.MinPeakHeight = 0;
+% end
+    analysisData = guidata(detectButton);
+    
     abrSig = abrObj.amplitude;
 
     t = abrObj.timeVector;
     noiseLevel = abrObj.noiseLevel;
   
-    
+    timeLimit = 1.3e-3;
     
     
     % Get positive peaks
-    [peaks, locs] = findpeaks(abrSig(t>1e-3), t(t>1e-3) ...
-                                        , 'MinPeakHeight', noiseLevel(1)...
-                                        ..., 'MinPeakProminence', data(n).peakDetectionSettings.Prominence ...
-                                        , 'NPeaks', 4 ...                                        
-                                        ..., 'Annotate', 'extents'...
-                                        ..., 'Threshold', data(n).peakDetectionSettings.Threshold ...
-                                        ..., 'MinPeakDistance', data(n).peakDetectionSettings.Distance...
-                                        ..., 'MinPeakWidth', data(n).peakDetectionSettings.Width ...
-                                        );
+    [peaks, locs] = findpeaks(abrSig(t>timeLimit), t(t>timeLimit) ...
+                                                , 'MinPeakHeight', noiseLevel(1)...
+                                                , 'MinPeakProminence', analysisData.detectionSettings.Prominence ...
+                                                , 'NPeaks', analysisData.detectionSettings.Npeaks ... 
+                                                , 'Threshold', analysisData.detectionSettings.Threshold ...
+                                                , 'MinPeakDistance', analysisData.detectionSettings.Distance...
+                                                , 'MinPeakWidth', analysisData.detectionSettings.Width ...
+                                                );
                                     
     
     
     % Get negative peaks
-    [negPeaks, negLocs] = findpeaks(-abrSig(t>1.3e-3), t(t>1.3e-3), 'MinPeakHeight', -noiseLevel(2)...
-                                               ..., 'MinPeakProminence', 0.5 ...
-                                               , 'NPeaks', settings.Npeaks ...
-                                               ..., 'Annotate', 'extents'...
-                                               );
+    [negPeaks, negLocs] = findpeaks(-abrSig(t>timeLimit), t(t>timeLimit)...
+                                                         , 'MinPeakHeight', -noiseLevel(2)...
+                                                         , 'MinPeakProminence', analysisData.detectionSettings.Prominence ...
+                                                         , 'NPeaks', analysisData.detectionSettings.Npeaks ...
+                                                         , 'Threshold', analysisData.detectionSettings.Threshold ...
+                                                         , 'MinPeakDistance', analysisData.detectionSettings.Distance...
+                                                         , 'MinPeakWidth', analysisData.detectionSettings.Width ...
+                                                         );
                                            
     
     
