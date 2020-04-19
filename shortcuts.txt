@@ -1,0 +1,5 @@
+Functions,Keys
+Save Points,s
+Delete Points,delete
+Detect Peaks,d
+Open Peak Analysis Window,a
